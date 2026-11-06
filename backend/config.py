@@ -14,6 +14,7 @@ REQUEST_TIMEOUT = 10  # Seconds
 CACHE_TTL_PLAYERS = 180       # 3 minutes for player list (frequently updated prices)
 CACHE_TTL_PRICE = 600         # 10 minutes for price history
 CACHE_TTL_DETAIL = 3600       # 1 hour for player attributes (rarely change)
+DETAIL_DB_TTL = int(os.getenv("DETAIL_DB_TTL", "86400"))  # 落库详情 24 小时内直接读库
 
 # Sync Engine (Mode 2)
 DATABASE_PATH = os.path.join(os.path.dirname(__file__), "2kol.db")

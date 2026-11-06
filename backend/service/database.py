@@ -191,6 +191,55 @@ class Database:
                 return None
             return json.loads(row["data_json"])
 
+    def get_fresh_player_detail(
+        self, player_id: str, grade: int = 7, max_age_seconds: int = 86400
+    ) -> Optional[Dict[str, Any]]:
+        with self._get_connection() as conn:
+            row = conn.execute(
+                "SELECT data_json, updated_at FROM player_details WHERE player_id = ? AND grade = ?",
+                (str(player_id), grade),
+            ).fetchone()
+        if not row:
+            return None
+        updated_at = float(row["updated_at"] or 0)
+        if max_age_seconds and time.time() - updated_at > max_age_seconds:
+            return None
+        try:
+            return json.loads(row["data_json"])
+        except Exception:
+            return None
+
+    def list_detail_targets(
+        self, limit: int = 40, grade: int = 7, max_age_seconds: int = 86400
+    ) -> List[Dict[str, Any]]:
+        cutoff = time.time() - max_age_seconds
+        with self._get_connection() as conn:
+            rows = conn.execute(
+                """
+                SELECT p.player_id, p.price FROM players p
+                LEFT JOIN player_details d
+                  ON d.player_id = p.player_id AND d.grade = ?
+                WHERE d.updated_at IS NULL OR d.updated_at < ?
+                ORDER BY p.price DESC
+                LIMIT ?
+                """,
+                (grade, cutoff, limit),
+            ).fetchall()
+            return [dict(r) for r in rows]
+
+    def detail_stats(self, grade: int = 7, max_age_seconds: int = 86400) -> Dict[str, int]:
+        cutoff = time.time() - max_age_seconds
+        with self._get_connection() as conn:
+            total = conn.execute("SELECT COUNT(*) FROM players").fetchone()[0]
+            cached = conn.execute(
+                "SELECT COUNT(*) FROM player_details WHERE grade = ?", (grade,)
+            ).fetchone()[0]
+            fresh = conn.execute(
+                "SELECT COUNT(*) FROM player_details WHERE grade = ? AND updated_at >= ?",
+                (grade, cutoff),
+            ).fetchone()[0]
+        return {"total": total, "cached": cached, "fresh": fresh, "missing": max(0, total - fresh)}
+
     def get_price_history(self, player_id: str, days: int = 30) -> List[Dict[str, Any]]:
         with self._get_connection() as conn:
             cursor = conn.cursor()

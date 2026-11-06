@@ -1,9 +1,13 @@
+import hashlib
 import json
 import mimetypes
 import os
 import sys
+import urllib.request
 from typing import Optional
-from fastapi import FastAPI, Query, HTTPException
+from urllib.parse import urlparse
+from fastapi import FastAPI, Query, HTTPException, Request
+from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
@@ -29,7 +33,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if BASE_DIR not in sys.path:
     sys.path.insert(0, BASE_DIR)
 
-from backend.config import PORT, HOST
+from backend.config import PORT, HOST, USER_AGENT
 from backend.service.proxy_service import proxy_service
 from backend.service.sync_service import sync_service
 from backend.service.database import db
@@ -106,6 +110,49 @@ def get_players(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+IMAGE_CACHE_DIR = os.path.join(BASE_DIR, "cache", "images")
+ALLOWED_IMAGE_HOSTS = {"game.gtimg.cn"}
+
+
+@app.get("/api/image")
+def proxy_image(url: str = Query(..., description="官方 CDN 图片地址")):
+    parsed = urlparse(url)
+    host = (parsed.hostname or "").lower()
+    if parsed.scheme not in ("http", "https") or host not in ALLOWED_IMAGE_HOSTS:
+        raise HTTPException(status_code=400, detail="unsupported image source")
+
+    ext = os.path.splitext(parsed.path)[1].lower()
+    if ext not in (".png", ".jpg", ".jpeg", ".webp", ".gif"):
+        ext = ".png"
+    digest = hashlib.sha1(url.encode("utf-8")).hexdigest()
+    path = os.path.join(IMAGE_CACHE_DIR, digest + ext)
+
+    if not os.path.exists(path):
+        os.makedirs(IMAGE_CACHE_DIR, exist_ok=True)
+        try:
+            request = urllib.request.Request(
+                url,
+                headers={"User-Agent": USER_AGENT, "Referer": "https://game.qq.com/"},
+            )
+            with urllib.request.urlopen(request, timeout=10) as response:
+                data = response.read(5 * 1024 * 1024 + 1)
+            if len(data) > 5 * 1024 * 1024:
+                raise HTTPException(status_code=502, detail="image too large")
+            tmp_path = path + ".tmp"
+            with open(tmp_path, "wb") as handle:
+                handle.write(data)
+            os.replace(tmp_path, path)
+        except HTTPException:
+            raise
+        except Exception as exc:
+            raise HTTPException(status_code=502, detail=f"image fetch failed: {exc}")
+
+    media_type = mimetypes.guess_type(path)[0] or "image/png"
+    return FileResponse(
+        path, media_type=media_type, headers={"Cache-Control": "public, max-age=604800, immutable"}
+    )
+
+
 @app.get("/api/players/advanced")
 def get_players_advanced(
     filters: str = Query("{}", description="JSON 字符串，包含徽章、属性、战术、区间等条件"),
@@ -161,6 +208,18 @@ def get_price_history(
 @app.get("/api/sync/status")
 def get_sync_status():
     return {"code": 0, "data": sync_service.get_status()}
+
+
+@app.post("/api/sync/details")
+def warm_player_details(
+    request: Request,
+    limit: int = Query(20, ge=1, le=100),
+    grade: int = Query(7, ge=1, le=7),
+):
+    client_host = (request.client.host if request.client else "") or ""
+    if client_host not in ("127.0.0.1", "::1", "localhost"):
+        raise HTTPException(status_code=403, detail="only localhost can trigger detail warm-up")
+    return {"code": 0, "data": sync_service.warm_details(limit=limit, grade=grade)}
 
 
 @app.post("/api/sync/trigger")

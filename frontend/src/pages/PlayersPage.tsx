@@ -19,6 +19,7 @@ import { POSITIONS, SORT_OPTIONS, type SortKey } from "../data/taxonomy";
 import type { PlayerSummary } from "../data/types";
 import { formatPrice } from "../lib/format";
 import { searchAdvanced } from "../data/repository";
+import { matchesSearch } from "../lib/playerSearch";
 import {
   buildFilterChips,
   buildServerFilters,
@@ -130,12 +131,8 @@ export function PlayersPage() {
 
   const localFiltered = useMemo(() => {
     if (!catalog) return [];
-    const keyword = filters.q.trim().toLowerCase();
     return catalog.filter((player) => {
-      if (keyword) {
-        const haystack = `${player.name} ${player.nameEn} ${player.team} ${player.archetype}`.toLowerCase();
-        if (!haystack.includes(keyword)) return false;
-      }
+      if (!matchesSearch(player, filters.q)) return false;
       return matchesFilters(player, filters);
     });
   }, [catalog, filters]);
@@ -307,7 +304,7 @@ export function PlayersPage() {
           <SearchField
             value={filters.q}
             onChange={(value) => update({ q: value })}
-            placeholder="搜索球员中文名、英文名或球队"
+            placeholder="搜索姓名、英文名、拼音或绰号"
             className="filters__search"
           />
           <Select

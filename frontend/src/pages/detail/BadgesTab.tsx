@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import type { BadgeEntry, BadgeLevel, PlayerDetail } from "../../data/types";
+import { imageUrl } from "../../lib/image";
 import {
   BADGE_CATEGORIES,
   BADGE_LEVELS,
@@ -17,7 +18,7 @@ function BadgeIcon({ badge, color }: { badge: BadgeEntry; color: string }) {
       <span className="badge-hex__inner">
         {badge.img && !failed ? (
           <img
-            src={badge.img}
+            src={imageUrl(badge.img)}
             alt=""
             loading="lazy"
             onError={() => setFailed(true)}

@@ -19,8 +19,10 @@ import { BadgesTab } from "./detail/BadgesTab";
 import { ActionsTab } from "./detail/ActionsTab";
 import { TendenciesTab } from "./detail/TendenciesTab";
 import { TacticsTab } from "./detail/TacticsTab";
+import { PriceTab } from "./detail/PriceTab";
 import { RARE_SERIES } from "../lib/constants";
 import { formatHeight, formatPositions, formatPrice } from "../lib/format";
+import { copyText } from "../lib/clipboard";
 
 const TABS = [
   { key: "overview", label: "综合" },
@@ -29,31 +31,10 @@ const TABS = [
   { key: "actions", label: "动作" },
   { key: "tendencies", label: "倾向" },
   { key: "tactics", label: "战术类型" },
+  { key: "price", label: "身价" },
 ] as const;
 
 type TabKey = (typeof TABS)[number]["key"];
-
-async function copyShareLink(): Promise<boolean> {
-  const url = window.location.href;
-  try {
-    await navigator.clipboard.writeText(url);
-    return true;
-  } catch {
-    try {
-      const area = document.createElement("textarea");
-      area.value = url;
-      area.style.position = "fixed";
-      area.style.opacity = "0";
-      document.body.appendChild(area);
-      area.select();
-      const ok = document.execCommand("copy");
-      document.body.removeChild(area);
-      return ok;
-    } catch {
-      return false;
-    }
-  }
-}
 
 export function PlayerDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -219,7 +200,7 @@ export function PlayerDetailPage() {
               type="button"
               className="btn btn--on-dark"
               onClick={async () => {
-                const ok = await copyShareLink();
+                const ok = await copyText(window.location.href);
                 pushToast(ok ? "球员链接已复制" : "复制失败，请手动复制地址栏链接", ok ? "accent" : "danger");
               }}
             >
@@ -305,6 +286,7 @@ export function PlayerDetailPage() {
             <TacticsTab detail={detail} />
           </div>
         ) : null}
+        {tab === "price" ? <PriceTab detail={detail} /> : null}
 
         <div style={{ marginTop: 24, display: "flex", gap: 8, flexWrap: "wrap" }}>
           <Link className="btn" to="/">
@@ -315,7 +297,7 @@ export function PlayerDetailPage() {
             type="button"
             className="btn"
             onClick={async () => {
-              const ok = await copyShareLink();
+              const ok = await copyText(window.location.href);
               pushToast(ok ? "球员链接已复制" : "复制失败，请手动复制地址栏链接", ok ? "accent" : "danger");
             }}
           >

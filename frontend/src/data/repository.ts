@@ -4,6 +4,7 @@ import type {
   DataSourceMode,
   PlayerDetail,
   PlayerSummary,
+  PriceHistory,
   RadarEntry,
 } from "./types";
 import { synthesizeDetail } from "./synthetic";
@@ -380,6 +381,36 @@ export async function probeDataMode(): Promise<DataSourceMode> {
   return mode;
 }
 
+
+function toNullableNumber(value: unknown): number | null {
+  const num = typeof value === "number" ? value : parseFloat(String(value ?? ""));
+  return Number.isFinite(num) ? num : null;
+}
+
+export async function getPriceHistory(id: string, days = 30): Promise<PriceHistory> {
+  const payload = await requestJson<{ data?: Record<string, unknown> }>(
+    `/api/player/${id}/price-history?days=${days}`,
+    15000,
+  );
+  const raw = payload.data ?? {};
+  const points = asArray<{ date?: string; price?: number | string }>(raw.price_history)
+    .map((item) => ({
+      date: String(item.date ?? ""),
+      price: toInt(item.price),
+    }))
+    .filter((item) => item.date && item.price > 0)
+    .sort((a, b) => a.date.localeCompare(b.date));
+
+  const currentPrice =
+    toInt(raw.current_price) || (points.length ? points[points.length - 1].price : 0);
+
+  return {
+    currentPrice,
+    change7d: toNullableNumber(raw.price_change_7d_pct),
+    change30d: toNullableNumber(raw.price_change_30d_pct),
+    points,
+  };
+}
 
 export interface AdvancedSearchOptions {
   filters: Record<string, unknown>;

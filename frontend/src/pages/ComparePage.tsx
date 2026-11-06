@@ -1,6 +1,6 @@
-import { Fragment, useEffect, useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { Plus, Scales, Trash, X } from "@phosphor-icons/react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { Plus, Scales, ShareNetwork, Trash, X } from "@phosphor-icons/react";
 import { useCatalog } from "../hooks/useData";
 import { getPlayerDetail } from "../data/repository";
 import { useCompare, pushToast } from "../state/store";
@@ -13,6 +13,7 @@ import { BadgeCounts } from "../components/BadgeCounts";
 import { COMPARE_COLORS } from "../lib/constants";
 import { ATTRIBUTE_GROUPS } from "../data/taxonomy";
 import { formatHeight, formatPositions, formatPrice } from "../lib/format";
+import { copyText } from "../lib/clipboard";
 
 const KEY_TENDENCIES = [
   "出手倾向",
@@ -37,9 +38,41 @@ export function ComparePage() {
   const navigate = useNavigate();
   const { catalog, loading } = useCatalog();
   const { ids, toggle, clear, setIds } = useCompare();
+  const [params, setParams] = useSearchParams();
+  const urlInitialised = useRef(false);
   const [details, setDetails] = useState<PlayerDetail[]>([]);
   const [detailLoading, setDetailLoading] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
+
+  // 支持通过 ?ids=4567,4820 直接打开一组对比
+  useEffect(() => {
+    if (urlInitialised.current) return;
+    urlInitialised.current = true;
+    const raw = params.get("ids");
+    if (!raw) return;
+    const incoming = Array.from(
+      new Set(raw.split(",").map((item) => item.trim()).filter(Boolean)),
+    ).slice(0, 3);
+    if (incoming.length && incoming.join(",") !== ids.join(",")) setIds(incoming);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // 目录就绪后剔除失效 id，避免分享链接里夹带无效球员
+  useEffect(() => {
+    if (!catalog || !ids.length) return;
+    const valid = ids.filter((id) => catalog.some((player) => player.id === id));
+    if (valid.length !== ids.length) setIds(valid);
+  }, [catalog, ids, setIds]);
+
+  // 选人变化时同步到地址栏，便于分享与刷新
+  useEffect(() => {
+    const wanted = ids.join(",");
+    if ((params.get("ids") ?? "") === wanted) return;
+    const next = new URLSearchParams(params);
+    if (wanted) next.set("ids", wanted);
+    else next.delete("ids");
+    setParams(next, { replace: true });
+  }, [ids, params, setParams]);
 
   useEffect(() => {
     if (!ids.length) {
@@ -205,6 +238,23 @@ export function ComparePage() {
           </p>
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <button
+            type="button"
+            className="btn"
+            disabled={ids.length < 2}
+            title={ids.length < 2 ? "至少选择 2 名球员后可分享" : "复制包含球员 ID 的对比链接"}
+            onClick={async () => {
+              const url = `${window.location.origin}${window.location.pathname}#/compare?ids=${ids.join(",")}`;
+              const ok = await copyText(url);
+              pushToast(
+                ok ? "对比链接已复制，可直接分享" : "复制失败，请手动复制地址栏",
+                ok ? "accent" : "danger",
+              );
+            }}
+          >
+            <ShareNetwork size={14} weight="bold" />
+            分享对比
+          </button>
           <button
             type="button"
             className="btn"

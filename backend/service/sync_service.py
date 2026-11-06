@@ -20,6 +20,7 @@ class SyncService:
 
     def __init__(self):
         self.is_syncing = False
+        self.is_warming_details = False
         self.last_sync_time = 0.0
         self.last_sync_status = "idle"
         self.last_sync_count = 0
@@ -131,15 +132,59 @@ class SyncService:
             "message": "Background sync job started"
         }
 
+    def warm_details(self, limit: int = 20, grade: int = 7) -> Dict[str, Any]:
+        """低频预热球员详情：小批量 + 随机抖动，连续失败立即停止，避免触发风控。"""
+        if self.is_warming_details:
+            return {"status": "running", "message": "详情预热任务正在执行"}
+
+        from backend.service.proxy_service import proxy_service  # 延迟导入避免循环依赖
+
+        self.is_warming_details = True
+        processed = success = failed = 0
+        consecutive_failures = 0
+        started = time.time()
+        try:
+            targets = db.list_detail_targets(limit=limit, grade=grade)
+            for item in targets:
+                pid = str(item["player_id"])
+                try:
+                    proxy_service.get_player_detail_realtime(pid, grade=grade, force=True)
+                    success += 1
+                    consecutive_failures = 0
+                except Exception as exc:
+                    failed += 1
+                    consecutive_failures += 1
+                    print(f"[WarmDetails] {pid} failed: {exc}")
+                    if consecutive_failures >= 3:
+                        print("[WarmDetails] 连续失败 3 次，提前停止")
+                        break
+                processed += 1
+                if processed < len(targets):
+                    time.sleep(random.uniform(2.0, 3.5))
+        finally:
+            self.is_warming_details = False
+
+        stats = db.detail_stats(grade=grade)
+        return {
+            "status": "done",
+            "processed": processed,
+            "success": success,
+            "failed": failed,
+            "seconds": round(time.time() - started, 1),
+            "coverage": stats,
+        }
+
     def get_status(self) -> Dict[str, Any]:
         current_db_total = len(db.search_players(limit=1000))
         return {
             "is_syncing": self.is_syncing,
+            "is_warming_details": self.is_warming_details,
             "last_sync_status": self.last_sync_status,
             "last_sync_time": self.last_sync_time,
             "last_sync_count": self.last_sync_count,
             "db_total_players": current_db_total,
-            "db_last_sync": db.get_sync_meta("last_sync_time")
+            "db_last_sync": db.get_sync_meta("last_sync_time"),
+            "details": db.detail_stats(),
         }
 
 

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { classNames } from "../lib/format";
+import { imageUrl } from "../lib/image";
 
 interface AvatarProps {
   name: string;
@@ -25,7 +26,7 @@ export function Avatar({ name, portrait, size = 40, className, alt }: AvatarProp
     >
       {showImage ? (
         <img
-          src={portrait}
+          src={imageUrl(portrait)}
           alt={alt ?? `${name} 头像`}
           loading="lazy"
           decoding="async"

@@ -116,6 +116,18 @@ export interface AdvancedFilterState {
   playTypes: number[];
 }
 
+export interface PricePoint {
+  date: string;
+  price: number;
+}
+
+export interface PriceHistory {
+  currentPrice: number;
+  change7d: number | null;
+  change30d: number | null;
+  points: PricePoint[];
+}
+
 export type DataSourceMode = "live" | "local";
 
 export interface DatasetMeta {

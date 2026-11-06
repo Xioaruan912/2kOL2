@@ -2141,3 +2141,154 @@
   opacity: 0.4;
   cursor: not-allowed;
 }
+
+
+/* ---------------------------------------------------------- 身价走势 */
+
+.price-stats {
+  display: grid;
+  grid-template-columns: 1.25fr 1fr 1fr 1fr 1fr;
+  gap: 1px;
+  background: var(--line);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+
+.price-stat {
+  background: var(--surface);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.price-stat__label {
+  font-size: var(--fs-11);
+  color: var(--text-3);
+}
+
+.price-stat__value {
+  font-family: var(--font-num);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--fs-18);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.price-stat--main .price-stat__value {
+  font-size: var(--fs-24);
+  color: var(--text);
+}
+
+.price-change {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--font-num);
+  font-size: var(--fs-16);
+  font-weight: 600;
+}
+
+.price-change.is-up {
+  color: var(--accent-strong);
+}
+
+.price-change.is-down {
+  color: var(--positive);
+}
+
+.price-change.is-flat {
+  color: var(--text-3);
+}
+
+.price-chart {
+  width: 100%;
+}
+
+.price-chart svg {
+  display: block;
+  max-width: 100%;
+}
+
+.price-chart-empty {
+  padding: 56px 16px;
+  text-align: center;
+  color: var(--text-3);
+  font-size: var(--fs-13);
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--r-sm);
+}
+
+.price-note {
+  margin-top: 10px;
+  font-size: var(--fs-11);
+  color: var(--text-3);
+  text-align: center;
+}
+
+.price-loading {
+  display: flex;
+  flex-direction: column;
+}
+
+.price-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+  color: var(--text-2);
+}
+
+.price-error svg {
+  color: var(--warning);
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.price-error__title {
+  font-size: var(--fs-13);
+  font-weight: 600;
+  color: var(--text);
+}
+
+.price-error p {
+  margin: 4px 0 0;
+  font-size: var(--fs-12);
+  color: var(--text-3);
+}
+
+.price-error .btn {
+  margin-left: auto;
+}
+
+@media (max-width: 767px) {
+  .price-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .price-stat--main {
+    grid-column: 1 / -1;
+  }
+
+  .price-stat {
+    padding: 10px 12px;
+  }
+
+  .price-stat__value {
+    font-size: var(--fs-16);
+  }
+
+  .price-stat--main .price-stat__value {
+    font-size: var(--fs-20);
+  }
+
+  .price-change {
+    font-size: var(--fs-14);
+  }
+}

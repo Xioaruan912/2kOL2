@@ -7,7 +7,7 @@ from typing import Dict, Any, List, Optional
 from backend.crypto.client import default_client
 from backend.utils.risk_control import cache, single_flight, breaker
 from backend.service.database import db
-from backend.config import CACHE_TTL_PLAYERS, CACHE_TTL_PRICE, CACHE_TTL_DETAIL
+from backend.config import CACHE_TTL_PLAYERS, CACHE_TTL_PRICE, CACHE_TTL_DETAIL, DETAIL_DB_TTL
 
 TACTICS_MAP = {
     1: "单打", 2: "单打(侧翼)", 3: "单打(弧顶)", 4: "挡拆持球人",
@@ -204,7 +204,9 @@ class ProxyService:
 
         return single_flight.do(cache_key, _fetch)
 
-    def get_player_detail_realtime(self, player_id: str, grade: int = 7) -> Dict[str, Any]:
+    def get_player_detail_realtime(
+        self, player_id: str, grade: int = 7, force: bool = False
+    ) -> Dict[str, Any]:
         player_id = str(player_id)
         # 兼容官方分享链接里的内部 id（例如 /player/977 -> playerId 4313）
         if not db.get_player(player_id):
@@ -212,9 +214,15 @@ class ProxyService:
             if resolved:
                 player_id = resolved
         cache_key = f"proxy:detail:{player_id}:{grade}"
-        cached = cache.get(cache_key)
-        if cached:
-            return cached
+        if not force:
+            cached = cache.get(cache_key)
+            if cached:
+                return cached
+            # 24 小时内的落库详情直接返回，避免每次打开都打上游
+            fresh = db.get_fresh_player_detail(player_id, grade, DETAIL_DB_TTL)
+            if fresh:
+                cache.set(cache_key, fresh, CACHE_TTL_DETAIL)
+                return fresh
 
         def _fetch():
             if not breaker.can_execute():
