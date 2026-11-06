@@ -215,7 +215,10 @@ export async function getPlayerDetail(id: string): Promise<PlayerDetail>;
 
 线上实例（HostDZire VPS，Debian 12）：
 
-- 访问地址：http://199.47.242.40:2369
+- 访问地址：**https://fofa.im**（备用直连：http://199.47.242.40:2369）
+- 反向代理：Nginx vhost `deploy/nginx/fofa.im.conf`，443 代理到 `127.0.0.1:2369`，80 跳转 HTTPS
+- 证书：Let's Encrypt（certbot 自动续期，deploy hook 自动 reload nginx）
+- Cloudflare：DNS 已指向源站；如开启橙色云代理，SSL/TLS 模式需设为 **Full (strict)**，否则 80 跳 443 会造成重定向循环
 - 进程管理：`systemd` 单元 `2kol.service`，端口 2369，开机自启
 - 部署目录：`/opt/2kol`（`venv/` + `backend/` + `frontend/dist/`）
 - 数据模式：后端可访问官方接口时为「实时代理」，异常时自动退回本地 SQLite 与前端快照
@@ -236,4 +239,11 @@ cd frontend && npm run build
 scp -r frontend/dist root@199.47.242.40:/opt/2kol/frontend/
 scp -r backend       root@199.47.242.40:/opt/2kol/
 ssh root@199.47.242.40 'systemctl restart 2kol'
+```
+
+Nginx 配置更新（仅首次或改代理规则时需要）：
+
+```bash
+scp deploy/nginx/fofa.im.conf root@199.47.242.40:/etc/nginx/sites-available/fofa.im
+ssh root@199.47.242.40 'nginx -t && systemctl reload nginx'
 ```
