@@ -4,6 +4,7 @@ import {
   ArrowLeft,
   Basketball,
   Copy,
+  ImageSquare,
   Plus,
   ShareNetwork,
   Star,
@@ -20,6 +21,7 @@ import { ActionsTab } from "./detail/ActionsTab";
 import { TendenciesTab } from "./detail/TendenciesTab";
 import { TacticsTab } from "./detail/TacticsTab";
 import { PriceTab } from "./detail/PriceTab";
+import { ShareCardModal } from "../components/ShareCardModal";
 import { RARE_SERIES } from "../lib/constants";
 import { formatHeight, formatPositions, formatPrice } from "../lib/format";
 import { copyText } from "../lib/clipboard";
@@ -43,6 +45,7 @@ export function PlayerDetailPage() {
   const { detail, loading, error, reload } = usePlayerDetail(id);
   const { ids: favoriteIds, toggle: toggleFavorite } = useFavorites();
   const { ids: compareIds, toggle: toggleCompare } = useCompare();
+  const [cardOpen, setCardOpen] = useState(false);
   const [tab, setTab] = useState<TabKey>(() => {
     const value = params.get("tab");
     return TABS.some((item) => item.key === value) ? (value as TabKey) : "overview";
@@ -199,6 +202,14 @@ export function PlayerDetailPage() {
             <button
               type="button"
               className="btn btn--on-dark"
+              onClick={() => setCardOpen(true)}
+            >
+              <ImageSquare size={14} weight="bold" />
+              卡片
+            </button>
+            <button
+              type="button"
+              className="btn btn--on-dark"
               onClick={async () => {
                 const ok = await copyText(window.location.href);
                 pushToast(ok ? "球员链接已复制" : "复制失败，请手动复制地址栏链接", ok ? "accent" : "danger");
@@ -307,6 +318,8 @@ export function PlayerDetailPage() {
           <BadgeCounts counts={detail.badgeCounts} />
         </div>
       </div>
+
+      <ShareCardModal open={cardOpen} detail={detail} onClose={() => setCardOpen(false)} />
     </div>
   );
 }
