@@ -266,8 +266,8 @@ export async function renderShareCard(detail: PlayerDetail): Promise<HTMLCanvasE
   ctx.strokeStyle = "rgba(255,255,255,0.1)";
   ctx.lineWidth = 1;
   ctx.beginPath();
-  ctx.moveTo(PAD, 1170);
-  ctx.lineTo(W - PAD, 1170);
+  ctx.moveTo(PAD, 1140);
+  ctx.lineTo(W - PAD, 1140);
   ctx.stroke();
 
   // 二维码与链接
@@ -279,28 +279,28 @@ export async function renderShareCard(detail: PlayerDetail): Promise<HTMLCanvasE
   });
   const qr = await loadImage(qrDataUrl);
   ctx.fillStyle = "#ffffff";
-  roundRect(ctx, PAD, 1196, 176, 176, 10);
+  roundRect(ctx, PAD, 1152, 232, 232, 12);
   ctx.fill();
-  ctx.drawImage(qr, PAD + 8, 1204, 160, 160);
+  ctx.drawImage(qr, PAD + 12, 1164, 208, 208);
 
-  const textX = PAD + 212;
+  const textX = PAD + 264;
   ctx.fillStyle = SUB;
-  ctx.font = `500 17px ${FONT}`;
-  ctx.fillText("扫码查看完整数据", textX, 1234);
+  ctx.font = `500 18px ${FONT}`;
+  ctx.fillText("扫码查看完整数据", textX, 1198);
 
-  const urlSize = fitText(ctx, url, W - PAD - textX, 600, 21, 12);
+  const urlSize = fitText(ctx, url, W - PAD - textX, 600, 23, 12);
   ctx.fillStyle = TEXT;
   ctx.font = `600 ${urlSize}px ${FONT}`;
-  ctx.fillText(url, textX, 1272);
+  ctx.fillText(url, textX, 1240);
 
   ctx.fillStyle = SUB;
   ctx.font = `400 15px ${FONT}`;
-  ctx.fillText("属性 · 徽章 · 动作 · 倾向 · 身价走势", textX, 1304);
+  ctx.fillText("属性 · 徽章 · 动作 · 倾向 · 身价走势", textX, 1276);
 
   ctx.textAlign = "right";
   ctx.fillStyle = ACCENT;
   ctx.font = `700 16px ${FONT}`;
-  ctx.fillText("COURTSIDE DB", W - PAD, 1340);
+  ctx.fillText("COURTSIDE DB", W - PAD, 1332);
   ctx.textAlign = "left";
 
   return canvas;
