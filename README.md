@@ -43,7 +43,8 @@
 │       │   ├── synthetic.ts        # 无快照球员的离线推演（明确标注）
 │       │   └── generated/
 │       │       ├── catalog.json    # 1469 名球员目录快照
-│       │       └── details.json    # 18 名精选球员完整详情快照
+│       │       ├── details.json    # 18 名精选球员完整详情快照
+│       │       └── pinyin.json     # 1222 个球员名的拼音索引
 │       ├── components/             # 表格、雷达、热区、对比栏、选人弹层等
 │       ├── pages/                  # 列表 / 详情（6 Tab）/ 对比 / 收藏
 │       ├── state/store.ts          # 收藏、对比、Toast（localStorage）
@@ -101,7 +102,9 @@ npm run build        # 输出到 frontend/dist，FastAPI 自动优先托管
 
 1. **实时模式（实时代理）**：前端请求同源 `/api/players?mode=db` 与 `/api/player/{id}`，后端经官方加密接口取数；页面右上角显示「实时代理」。
 2. **本地快照（本地快照）**：后端不可用时自动降级到 `frontend/src/data/generated/*.json`，全量 1469 名球员仍可搜索、筛选、排序，页面右上角显示「本地快照」。
-3. **离线推演**：快照中未收录详情的球员（例如冷门卡），详情页顶部显示橙色提示条与「离线推演数据」标签，属性 / 徽章 / 动作 / 倾向由位置与总评确定性推演，不代表官方数值。
+3. **详情落库与预热**：详情接口优先返回 24 小时内的库内详情；小于 24 小时不回源。后台每 30 分钟预热 20 名球员（2–3.5 秒随机抖动，连续失败 3 次自动停止），约 40 人/小时，全量 1469 人约需 36 小时，避免触发上游风控。
+4. **图片反代**：头像与徽章经 `/api/image` 反代并落盘缓存 7 天，减少 CDN 直连与反复下载。
+5. **离线推演**：快照中未收录详情的球员（例如冷门卡），详情页顶部显示橙色提示条与「离线推演数据」标签，属性 / 徽章 / 动作 / 倾向由位置与总评确定性推演，不代表官方数值。
 
 重新导出快照（后端需运行）：
 
@@ -129,6 +132,8 @@ export async function getPlayerDetail(id: string): Promise<PlayerDetail>;
 | :--- | :---: | :--- | :--- |
 | `/api/players` | GET | `keyword` `pos` `team` `sort_by` `desc` `mode` `limit` | 球员目录（`mode=db` 走本地库，`realtime` 走实时代理） |
 | `/api/players/advanced` | GET | `filters`(JSON) `keyword` `team` `page` `page_size` `sort_field` `sort_order` | 细节筛选：徽章 / 属性 / 战术 / 区间，透传官方搜索接口 |
+| `/api/image` | GET | `url` | 官方 CDN 图片反代与磁盘缓存（仅允许 game.gtimg.cn） |
+| `/api/sync/details` | POST | `limit` `grade` | 低频详情预热，仅允许本机调用 |
 | `/api/player/{playerId}` | GET | `grade` (1-7) | 球员完整详情；同时兼容官方分享链接的内部 id（如 977 → 4313） |
 | `/api/player/{playerId}/price-history` | GET | `days` | 身价走势（后端预留，前端尚未展示） |
 | `/api/sync/status` / `/api/sync/trigger` | GET / POST | `top_n` | 同步任务状态与手动同步 |
@@ -146,6 +151,7 @@ export async function getPlayerDetail(id: string): Promise<PlayerDetail>;
 - 属性阈值（如三分投篮 ≥ 130）、战术类型多选；区间条件本地即时生效，徽章 / 属性 / 战术走官方实时接口并分页，结果标记「精细筛选 · 官方实时」
 - 生效条件以标签展示，可逐条移除或一键清除；精细模式下排序仅保留价格
 - 排序：价格（默认高到低）/ 徽章数 / 身高 / 姓名，支持升降序切换
+- 搜索支持中文名、英文名、拼音全拼（kuli）与首字母（ym）以及常见绰号（萌神、lbj、sga），索引由 `npm run gen:pinyin` 预生成
 - 分页（24 条/页，含省略号分页器）、结果计数、生效筛选计数
 - 空结果状态、加载骨架、错误重试、清空全部条件
 - 行内收藏、加入对比；桌面表格与移动端卡片双布局
@@ -160,9 +166,11 @@ export async function getPlayerDetail(id: string): Promise<PlayerDetail>;
 - 动作：OL2 / 26 内核切换、投篮条 / 离手 / 总时间、核心动作行、全部动作两列
 - 倾向：全部 / 防守 / 传球 / 决策 / 投篮 / 篮下 / 突破 / 背身分类，含数值条
 - 战术类型：是否主控与战术类型 1-4
+- 身价：7 / 30 / 60 / 90 天走势折线，7 日与 30 日涨跌幅、区间最高 / 最低价
 
 **对比**
 - 最多 3 名球员，选人弹层支持搜索
+- 支持 `#/compare?ids=4567,4820` 直接打开一组对比，并可复制带 ID 的分享链接
 - 槽位卡（总评 / 身高 / 价格）、雷达叠加（三色图例）
 - 基本信息、能力维度、关键倾向、详细属性矩阵，最优项自动高亮（价格为最低优先）
 - 三宫格热区并排、徽章构成
