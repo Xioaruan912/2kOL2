@@ -1,41 +1,37 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Basketball, FunnelSimple, SortAscending, SortDescending } from "@phosphor-icons/react";
+import {
+  Basketball,
+  FunnelSimple,
+  SortAscending,
+  SortDescending,
+  WarningCircle,
+  X,
+} from "@phosphor-icons/react";
 import { PlayerTable } from "../components/PlayerTable";
 import { SearchField } from "../components/SearchField";
 import { Select } from "../components/Select";
+import { FilterDrawer, type DrawerValues } from "../components/FilterDrawer";
 import { useCatalog } from "../hooks/useData";
 import { useCompare, useFavorites, pushToast } from "../state/store";
 import { BADGE_FILTER_OPTIONS, PAGE_SIZE } from "../lib/constants";
 import { POSITIONS, SORT_OPTIONS, type SortKey } from "../data/taxonomy";
 import type { PlayerSummary } from "../data/types";
 import { formatPrice } from "../lib/format";
+import { searchAdvanced } from "../data/repository";
+import {
+  buildFilterChips,
+  buildServerFilters,
+  countAdvancedFilters,
+  hasDetailFilters,
+  matchesFilters,
+  parseFilters,
+  serializeAttributeConditions,
+  serializeBadgeConditions,
+  totalBadges,
+} from "../lib/filtering";
 
 const SORT_KEYS = SORT_OPTIONS.map((option) => option.key);
-const BADGE_KEYS = BADGE_FILTER_OPTIONS.map((option) => option.value);
-
-function totalBadgeCount(player: PlayerSummary): number {
-  const c = player.badgeCounts;
-  return c.bronze + c.silver + c.gold + c.purple;
-}
-
-function applyBadgeFilter(player: PlayerSummary, filter: string): boolean {
-  const total = totalBadgeCount(player);
-  switch (filter) {
-    case "total-15":
-      return total >= 15;
-    case "total-25":
-      return total >= 25;
-    case "total-35":
-      return total >= 35;
-    case "has-purple":
-      return player.badgeCounts.purple > 0;
-    case "has-gold":
-      return player.badgeCounts.gold > 0;
-    default:
-      return true;
-  }
-}
 
 function sortPlayers(list: PlayerSummary[], key: SortKey, dir: "asc" | "desc"): PlayerSummary[] {
   const factor = dir === "asc" ? 1 : -1;
@@ -44,7 +40,7 @@ function sortPlayers(list: PlayerSummary[], key: SortKey, dir: "asc" | "desc"): 
       case "price":
         return player.price;
       case "badges":
-        return totalBadgeCount(player);
+        return totalBadges(player);
       case "height":
         return player.height ?? 0;
       case "name":
@@ -59,7 +55,6 @@ function sortPlayers(list: PlayerSummary[], key: SortKey, dir: "asc" | "desc"): 
     if (typeof va === "string" && typeof vb === "string") {
       return va.localeCompare(vb, "zh-Hans-CN") * factor;
     }
-    // 无市价 / 无身高的球员始终排在末尾，避免 0 值干扰排序结果
     if (key === "price" || key === "height") {
       const missingA = !va;
       const missingB = !vb;
@@ -69,23 +64,36 @@ function sortPlayers(list: PlayerSummary[], key: SortKey, dir: "asc" | "desc"): 
   });
 }
 
+interface AdvancedState {
+  loading: boolean;
+  error: string | null;
+  players: PlayerSummary[];
+  total: number;
+}
+
 export function PlayersPage() {
   const { catalog, loading, error, reload } = useCatalog();
   const { ids: favoriteIds, toggle: toggleFavorite } = useFavorites();
   const { ids: compareIds, toggle: toggleCompare } = useCompare();
   const [params, setParams] = useSearchParams();
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [advNonce, setAdvNonce] = useState(0);
+  const [debouncedQuery, setDebouncedQuery] = useState("");
+  const [adv, setAdv] = useState<AdvancedState>({
+    loading: false,
+    error: null,
+    players: [],
+    total: 0,
+  });
 
-  const query = params.get("q") ?? "";
-  const team = params.get("team") ?? "";
-  const pos = params.get("pos") ?? "";
-  const type = params.get("type") ?? "";
-  const series = params.get("series") ?? "";
-  const badge = BADGE_KEYS.includes(params.get("badge") ?? "") ? (params.get("badge") as string) : "all";
+  const filters = useMemo(() => parseFilters(params), [params]);
   const sort = SORT_KEYS.includes((params.get("sort") ?? "") as SortKey)
     ? ((params.get("sort") ?? "overall") as SortKey)
     : "overall";
   const dir = params.get("dir") === "asc" ? "asc" : "desc";
   const page = Math.max(1, Number(params.get("page") ?? 1) || 1);
+  const advancedActive = hasDetailFilters(filters);
+  const effectiveSort: SortKey = advancedActive ? (sort === "price" ? "price" : "overall") : sort;
 
   const update = (patch: Record<string, string | null>) => {
     const next = new URLSearchParams(params);
@@ -96,6 +104,8 @@ export function PlayersPage() {
     if (!("page" in patch)) next.delete("page");
     setParams(next, { replace: true });
   };
+
+  const clearAll = () => setParams(new URLSearchParams(), { replace: true });
 
   const options = useMemo(() => {
     if (!catalog) return { teams: [], types: [], series: [] };
@@ -118,42 +128,92 @@ export function PlayersPage() {
     };
   }, [catalog]);
 
-  const filtered = useMemo(() => {
+  const localFiltered = useMemo(() => {
     if (!catalog) return [];
-    const keyword = query.trim().toLowerCase();
+    const keyword = filters.q.trim().toLowerCase();
     return catalog.filter((player) => {
       if (keyword) {
         const haystack = `${player.name} ${player.nameEn} ${player.team} ${player.archetype}`.toLowerCase();
         if (!haystack.includes(keyword)) return false;
       }
-      if (team && player.team !== team) return false;
-      if (pos && !player.positions.includes(pos)) return false;
-      if (type && player.archetype !== type) return false;
-      if (series && player.series !== series) return false;
-      if (!applyBadgeFilter(player, badge)) return false;
-      return true;
+      return matchesFilters(player, filters);
     });
-  }, [catalog, query, team, pos, type, series, badge]);
+  }, [catalog, filters]);
 
-  const sorted = useMemo(() => sortPlayers(filtered, sort, dir), [filtered, sort, dir]);
-  const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
-  const currentPage = Math.min(page, totalPages);
-  const pagePlayers = sorted.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+  const sortedLocal = useMemo(
+    () => sortPlayers(localFiltered, sort, dir),
+    [localFiltered, sort, dir],
+  );
+
+  const serverFilters = useMemo(() => buildServerFilters(filters), [filters]);
+  const serverKey = JSON.stringify(serverFilters);
 
   useEffect(() => {
+    if (!advancedActive) {
+      setDebouncedQuery(filters.q);
+      return;
+    }
+    const timer = window.setTimeout(() => setDebouncedQuery(filters.q), 400);
+    return () => window.clearTimeout(timer);
+  }, [filters.q, advancedActive]);
+
+  useEffect(() => {
+    if (!advancedActive) return;
+    let alive = true;
+    setAdv((prev) => ({ ...prev, loading: true, error: null }));
+    searchAdvanced({
+      filters: serverFilters,
+      keyword: debouncedQuery.trim(),
+      team: filters.team,
+      page,
+      pageSize: PAGE_SIZE,
+      sortField: effectiveSort === "price" ? "price" : "overall",
+      sortOrder: dir,
+    })
+      .then((result) => {
+        if (!alive) return;
+        setAdv({ loading: false, error: null, players: result.players, total: result.total });
+      })
+      .catch((err: unknown) => {
+        if (!alive) return;
+        setAdv({
+          loading: false,
+          error: err instanceof Error ? err.message : "细节筛选失败",
+          players: [],
+          total: 0,
+        });
+      });
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [advancedActive, serverKey, debouncedQuery, filters.team, page, effectiveSort, dir, advNonce]);
+
+  const total = advancedActive ? adv.total : localFiltered.length;
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+
+  useEffect(() => {
+    if (advancedActive && adv.loading) return;
     if (page > totalPages) update({ page: String(totalPages) });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, totalPages]);
+  }, [page, totalPages, advancedActive, adv.loading]);
+
+  const pagePlayers = advancedActive
+    ? adv.players
+    : sortedLocal.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
   const stats = useMemo(() => {
     if (!catalog) return null;
-    const avgOverall = catalog.reduce((sum, p) => sum + p.overall, 0) / (catalog.length || 1);
-    const maxPrice = catalog.reduce((max, p) => Math.max(max, p.price), 0);
+    const avgOverall = catalog.reduce((sum, player) => sum + player.overall, 0) / (catalog.length || 1);
+    const maxPrice = catalog.reduce((max, player) => Math.max(max, player.price), 0);
     return { avgOverall: Math.round(avgOverall), maxPrice };
   }, [catalog]);
 
-  const activeFilterCount = [team, pos, type, series, badge !== "all" ? badge : "", query.trim() ? "q" : ""]
-    .filter(Boolean).length;
+  const activeFilterCount = countAdvancedFilters(filters);
+  const chips = useMemo(() => buildFilterChips(filters), [filters]);
+  const busy = advancedActive ? adv.loading : loading;
+  const failure = advancedActive ? adv.error : error;
 
   const handleToggleCompare = (id: string) => {
     const result = toggleCompare(id);
@@ -164,6 +224,36 @@ export function PlayersPage() {
     const wasFavorite = favoriteIds.includes(id);
     toggleFavorite(id);
     pushToast(wasFavorite ? "已取消收藏" : "已加入收藏", wasFavorite ? "neutral" : "accent");
+  };
+
+  const togglePosition = (position: string) => {
+    const next = filters.positions.includes(position)
+      ? filters.positions.filter((item) => item !== position)
+      : [...filters.positions, position];
+    update({ pos: next.join(",") || null });
+  };
+
+  const handleApply = (values: DrawerValues) => {
+    const hasAdvanced =
+      values.badges.length > 0 || values.attributes.length > 0 || values.playTypes.length > 0;
+    update({
+      ovr_min: values.overallMin !== undefined ? String(values.overallMin) : null,
+      ovr_max: values.overallMax !== undefined ? String(values.overallMax) : null,
+      price_min: values.priceMin !== undefined ? String(values.priceMin) : null,
+      price_max: values.priceMax !== undefined ? String(values.priceMax) : null,
+      h_min: values.heightMin !== undefined ? String(values.heightMin) : null,
+      h_max: values.heightMax !== undefined ? String(values.heightMax) : null,
+      adv_badges: values.badges.length ? serializeBadgeConditions(values.badges) : null,
+      adv_attrs: values.attributes.length ? serializeAttributeConditions(values.attributes) : null,
+      adv_plays: values.playTypes.length ? values.playTypes.join(",") : null,
+      badge: hasAdvanced ? null : params.get("badge"),
+    });
+    setDrawerOpen(false);
+  };
+
+  const exitAdvanced = () => {
+    update({ adv_badges: null, adv_attrs: null, adv_plays: null });
+    pushToast("已退出精细筛选");
   };
 
   const pageNumbers = useMemo(() => {
@@ -188,7 +278,7 @@ export function PlayersPage() {
         <div>
           <h1 className="page-title">球员数据库</h1>
           <p className="page-sub">
-            2KOL2 PC 端全量球员检索 · 支持姓名、球队、位置、类型与徽章组合筛选
+            2KOL2 PC 端全量球员检索 · 支持区间、徽章、属性与战术精细筛选
           </p>
         </div>
         <div className="meta-strip" aria-label="数据库概览">
@@ -198,7 +288,7 @@ export function PlayersPage() {
           </div>
           <div className="meta-item">
             <span className="meta-item__label">当前结果</span>
-            <span className="meta-item__value">{loading ? "—" : filtered.length}</span>
+            <span className="meta-item__value">{busy ? "—" : total}</span>
           </div>
           <div className="meta-item">
             <span className="meta-item__label">平均总评</span>
@@ -214,26 +304,26 @@ export function PlayersPage() {
       <section className="filters" aria-label="筛选条件">
         <div className="filters__row">
           <SearchField
-            value={query}
+            value={filters.q}
             onChange={(value) => update({ q: value })}
             placeholder="搜索球员中文名、英文名或球队"
             className="filters__search"
           />
           <Select
             ariaLabel="球队筛选"
-            value={team}
+            value={filters.team}
             onChange={(value) => update({ team: value })}
             options={[{ value: "", label: "全部球队" }, ...options.teams]}
           />
           <Select
             ariaLabel="球员类型筛选"
-            value={type}
+            value={filters.type}
             onChange={(value) => update({ type: value })}
             options={[{ value: "", label: "全部类型" }, ...options.types]}
           />
           <Select
             ariaLabel="卡系筛选"
-            value={series}
+            value={filters.series}
             onChange={(value) => update({ series: value })}
             options={[{ value: "", label: "全部卡系" }, ...options.series]}
           />
@@ -242,12 +332,12 @@ export function PlayersPage() {
         <div className="filters__divider" />
 
         <div className="filters__row filters__row--split">
-          <div className="pos-chips" role="group" aria-label="位置筛选">
+          <div className="pos-chips" role="group" aria-label="位置筛选（可多选）">
             <span className="filters__label">位置</span>
             <button
               type="button"
-              className={pos === "" ? "chip is-active" : "chip"}
-              onClick={() => update({ pos: "" })}
+              className={filters.positions.length === 0 ? "chip is-active" : "chip"}
+              onClick={() => update({ pos: null })}
             >
               全部
             </button>
@@ -255,8 +345,8 @@ export function PlayersPage() {
               <button
                 key={position}
                 type="button"
-                className={pos === position ? "chip is-active" : "chip"}
-                onClick={() => update({ pos: position })}
+                className={filters.positions.includes(position) ? "chip is-active" : "chip"}
+                onClick={() => togglePosition(position)}
               >
                 {position}
               </button>
@@ -266,46 +356,93 @@ export function PlayersPage() {
           <div className="filters__row" style={{ gap: 8 }}>
             <Select
               ariaLabel="徽章数量筛选"
-              value={badge}
+              value={filters.badge}
               onChange={(value) => update({ badge: value })}
               options={BADGE_FILTER_OPTIONS}
+              disabled={advancedActive}
+              title={advancedActive ? "精细筛选模式下请使用徽章条件" : undefined}
             />
             <button
               type="button"
-              className="btn btn--ghost btn--sm"
-              onClick={() =>
-                setParams(new URLSearchParams(), { replace: true })
-              }
-              disabled={!activeFilterCount}
+              className="btn btn--primary btn--filter"
+              onClick={() => setDrawerOpen(true)}
             >
-              <FunnelSimple size={13} weight="bold" />
-              清空筛选
+              <FunnelSimple size={14} weight="bold" />
+              筛选
+              {activeFilterCount > 0 ? (
+                <span className="btn__count">{activeFilterCount}</span>
+              ) : null}
+            </button>
+            <button
+              type="button"
+              className="btn btn--ghost btn--sm"
+              onClick={clearAll}
+              disabled={chips.length === 0}
+            >
+              清空
             </button>
           </div>
         </div>
+
+        {chips.length ? (
+          <div className="active-chips">
+            <span className="filters__label">已选</span>
+            {chips.map((chip) => (
+              <button
+                key={chip.key}
+                type="button"
+                className="active-chip"
+                title={`移除条件：${chip.label} ${chip.value}`}
+                onClick={() => update(chip.patch)}
+              >
+                <span className="active-chip__label">{chip.label}</span>
+                <span className="active-chip__value">{chip.value}</span>
+                <X size={10} weight="bold" />
+              </button>
+            ))}
+            <button type="button" className="chip-link" onClick={clearAll}>
+              清除全部
+            </button>
+          </div>
+        ) : null}
       </section>
 
       <div className="list-toolbar">
         <span className="results-count">
-          共<strong>{filtered.length}</strong>名球员
-          {activeFilterCount ? (
-            <span className="filter-count" style={{ marginLeft: 8 }}>
-              · {activeFilterCount} 项筛选生效
-            </span>
+          共<strong>{busy ? "—" : total}</strong>名球员
+          {advancedActive ? (
+            <span className="mode-tag">精细筛选 · 官方实时</span>
+          ) : activeFilterCount ? (
+            <span className="filter-count">· {activeFilterCount} 项筛选生效</span>
           ) : null}
         </span>
         <div className="sort-group" role="group" aria-label="排序方式">
           <span className="filters__label">排序</span>
-          {SORT_OPTIONS.map((option) => (
-            <button
-              key={option.key}
-              type="button"
-              className={sort === option.key ? "chip is-active" : "chip"}
-              onClick={() => update({ sort: option.key, dir: sort === option.key ? dir : option.key === "name" ? "asc" : "desc" })}
-            >
-              {option.label}
-            </button>
-          ))}
+          {SORT_OPTIONS.map((option) => {
+            const disabled = advancedActive && option.key !== "overall" && option.key !== "price";
+            return (
+              <button
+                key={option.key}
+                type="button"
+                className={effectiveSort === option.key ? "chip is-active" : "chip"}
+                disabled={disabled}
+                title={disabled ? "精细筛选模式仅支持总评 / 价格排序" : undefined}
+                onClick={() =>
+                  update({
+                    sort: option.key,
+                    dir:
+                      sort === option.key
+                        ? dir
+                        : option.key === "name"
+                          ? "asc"
+                          : "desc",
+                  })
+                }
+              >
+                {option.label}
+              </button>
+            );
+          })}
           <button
             type="button"
             className="sort-dir"
@@ -322,24 +459,45 @@ export function PlayersPage() {
         </div>
       </div>
 
-      {loading ? (
+      {failure ? (
+        <div className="state-block">
+          <span className="state-block__icon">
+            <WarningCircle size={22} />
+          </span>
+          <div className="state-block__title">
+            {advancedActive ? "细节筛选需要官方实时接口" : "球员数据加载失败"}
+          </div>
+          <p className="state-block__text">
+            {advancedActive
+              ? `当前条件（徽章 / 属性 / 战术）需要向后端实时取数，可能由于网络或上游接口暂时不可用。可以重试，或退出精细筛选改用本地条件。`
+              : failure}
+          </p>
+          <div className="state-block__actions">
+            {advancedActive ? (
+              <>
+                <button
+                  type="button"
+                  className="btn btn--primary"
+                  onClick={() => setAdvNonce((value) => value + 1)}
+                >
+                  重试
+                </button>
+                <button type="button" className="btn" onClick={exitAdvanced}>
+                  退出精细筛选
+                </button>
+              </>
+            ) : (
+              <button type="button" className="btn btn--primary" onClick={reload}>
+                重新加载
+              </button>
+            )}
+          </div>
+        </div>
+      ) : busy ? (
         <div className="skeleton-page" aria-label="正在加载球员数据">
           {Array.from({ length: 8 }).map((_, index) => (
             <div className="skeleton" key={index} style={{ height: 58 }} />
           ))}
-        </div>
-      ) : error ? (
-        <div className="state-block">
-          <span className="state-block__icon">
-            <Basketball size={22} />
-          </span>
-          <div className="state-block__title">球员数据加载失败</div>
-          <p className="state-block__text">{error}</p>
-          <div className="state-block__actions">
-            <button type="button" className="btn btn--primary" onClick={reload}>
-              重新加载
-            </button>
-          </div>
         </div>
       ) : pagePlayers.length === 0 ? (
         <div className="state-block">
@@ -348,16 +506,19 @@ export function PlayersPage() {
           </span>
           <div className="state-block__title">没有符合条件的球员</div>
           <p className="state-block__text">
-            当前关键词与筛选条件组合下没有结果。可以放宽徽章或类型限制，或直接清空条件重新检索。
+            {advancedActive
+              ? "当前徽章、属性或战术条件组合下没有匹配球员，可以降低属性阈值或移除部分徽章条件。"
+              : "当前关键词与筛选条件组合下没有结果。可以放宽徽章或类型限制，或直接清空条件重新检索。"}
           </p>
           <div className="state-block__actions">
-            <button
-              type="button"
-              className="btn btn--primary"
-              onClick={() => setParams(new URLSearchParams(), { replace: true })}
-            >
+            <button type="button" className="btn btn--primary" onClick={clearAll}>
               清空全部条件
             </button>
+            {advancedActive ? (
+              <button type="button" className="btn" onClick={exitAdvanced}>
+                退出精细筛选
+              </button>
+            ) : null}
           </div>
         </div>
       ) : (
@@ -416,6 +577,13 @@ export function PlayersPage() {
           ) : null}
         </>
       )}
+
+      <FilterDrawer
+        open={drawerOpen}
+        filters={filters}
+        onClose={() => setDrawerOpen(false)}
+        onApply={handleApply}
+      />
     </div>
   );
 }

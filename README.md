@@ -128,6 +128,7 @@ export async function getPlayerDetail(id: string): Promise<PlayerDetail>;
 | 接口 | 方法 | 参数 | 说明 |
 | :--- | :---: | :--- | :--- |
 | `/api/players` | GET | `keyword` `pos` `team` `sort_by` `desc` `mode` `limit` | 球员目录（`mode=db` 走本地库，`realtime` 走实时代理） |
+| `/api/players/advanced` | GET | `filters`(JSON) `keyword` `team` `page` `page_size` `sort_field` `sort_order` | 细节筛选：徽章 / 属性 / 战术 / 区间，透传官方搜索接口 |
 | `/api/player/{playerId}` | GET | `grade` (1-7) | 球员完整详情：属性、徽章、雷达、热区、动作包、倾向、战术 |
 | `/api/player/{playerId}/price-history` | GET | `days` | 身价走势（后端预留，前端尚未展示） |
 | `/api/sync/status` / `/api/sync/trigger` | GET / POST | `top_n` | 同步任务状态与手动同步 |
@@ -137,7 +138,10 @@ export async function getPlayerDetail(id: string): Promise<PlayerDetail>;
 
 **球员库**
 - 姓名（中/英）、球队、类型关键词搜索
-- 球队、类型、卡系下拉筛选；PG/SG/SF/PF/C 位置筛选；徽章数量与紫/金徽章筛选
+- 球队、类型、卡系下拉筛选；PG/SG/SF/PF/C 位置多选；徽章数量与紫/金徽章快捷筛选
+- 精细筛选面板：总评 / 价格 / 身高区间，具体徽章（名称 + 紫金金银等级）、属性阈值（如三分投篮 ≥ 130）、战术类型多选
+- 区间条件本地即时生效；徽章 / 属性 / 战术条件通过官方实时接口筛选并分页，结果标记「精细筛选 · 官方实时」
+- 生效条件以标签展示，可逐条移除或一键清除；排序在精细模式下降级为总评 / 价格
 - 总评 / 价格 / 徽章数 / 身高 / 姓名排序，升降序切换
 - 分页（24 条/页，含省略号分页器）、结果计数、生效筛选计数
 - 空结果状态、加载骨架、错误重试、清空全部条件
@@ -182,6 +186,8 @@ export async function getPlayerDetail(id: string): Promise<PlayerDetail>;
 | 雷达图 / 热区图 | 正常 | 正常 | 正常 | 正常 |
 | 对比页 | 正常 | 正常 | 正常 | 正常 |
 | 控制台错误 | 无 | 无 | 无 | 无 |
+
+细节筛选回归（`node scripts/ui-filters.cjs`，11 项全部 PASS）：面板打开、总评区间、条件标签、徽章筛选（神射手 + 紫命中 2 人）、移除条件、属性筛选（三分投篮≥130 命中 4 人）、战术筛选、位置多选、移动端面板、移动端身高筛选、无报错。
 
 功能回归（`node scripts/ui-functions.cjs`，16 项全部 PASS）：
 

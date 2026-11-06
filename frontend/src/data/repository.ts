@@ -31,9 +31,9 @@ export function subscribeDataMode(listener: () => void): () => void {
   return () => modeListeners.delete(listener);
 }
 
-async function requestJson<T>(path: string): Promise<T> {
+async function requestJson<T>(path: string, timeout = REQUEST_TIMEOUT): Promise<T> {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
+  const timer = setTimeout(() => controller.abort(), timeout);
   try {
     const res = await fetch(`${API_BASE}${path}`, {
       signal: controller.signal,
@@ -118,6 +118,7 @@ interface ApiPlayerRow {
   Wingspan?: string;
   height?: number | null;
   wingspan?: number | null;
+  raw_json?: string;
 }
 
 function normalizeCounts(raw: unknown): PlayerSummary["badgeCounts"] {
@@ -131,8 +132,10 @@ function normalizeCounts(raw: unknown): PlayerSummary["badgeCounts"] {
   };
 }
 
-function normalizeSummary(row: ApiPlayerRow): PlayerSummary {
+export function normalizeSummary(row: ApiPlayerRow): PlayerSummary {
   const badgeCounts = normalizeCounts(row.badge_counts);
+  // SQLite 目录把身高臂展放在 raw_json 里，需要二次解析，否则身高筛选会失效
+  const raw = asRecord<Record<string, unknown>>(row.raw_json);
   return {
     id: String(row.player_id ?? row.id ?? ""),
     name: row.show_name ?? row.showName ?? "",
@@ -152,8 +155,8 @@ function normalizeSummary(row: ApiPlayerRow): PlayerSummary {
     overall: toInt(row.overall),
     price: toInt(row.price),
     portrait: row.player_img ?? row.playerImg ?? "",
-    height: row.height ?? parseCm(row.Height),
-    wingspan: row.wingspan ?? parseCm(row.Wingspan),
+    height: row.height ?? parseCm(row.Height) ?? parseCm(raw.Height),
+    wingspan: row.wingspan ?? parseCm(row.Wingspan) ?? parseCm(raw.Wingspan),
     badgeCounts,
   };
 }
@@ -332,4 +335,43 @@ function withSummary(detail: PlayerDetail, summary: PlayerSummary): PlayerDetail
 export async function probeDataMode(): Promise<DataSourceMode> {
   await getCatalog();
   return mode;
+}
+
+
+export interface AdvancedSearchOptions {
+  filters: Record<string, unknown>;
+  keyword?: string;
+  team?: string;
+  page: number;
+  pageSize: number;
+  sortField?: "overall" | "price";
+  sortOrder?: "asc" | "desc";
+}
+
+export interface AdvancedSearchResult {
+  players: PlayerSummary[];
+  total: number;
+}
+
+/** 精细筛选：徽章 / 属性 / 战术等条件通过后端透传到官方接口 */
+export async function searchAdvanced(
+  options: AdvancedSearchOptions,
+): Promise<AdvancedSearchResult> {
+  const search = new URLSearchParams({
+    filters: JSON.stringify(options.filters ?? {}),
+    page: String(options.page),
+    page_size: String(options.pageSize),
+    sort_field: options.sortField ?? "overall",
+    sort_order: options.sortOrder ?? "desc",
+  });
+  if (options.keyword) search.set("keyword", options.keyword);
+  if (options.team) search.set("team", options.team);
+
+  const payload = await requestJson<{ list?: ApiPlayerRow[]; total?: number }>(
+    `/api/players/advanced?${search.toString()}`,
+    15000,
+  );
+  const players = (payload.list ?? []).map(normalizeSummary).filter((player) => player.id && player.name);
+  setMode("live");
+  return { players, total: Number(payload.total ?? players.length) || 0 };
 }

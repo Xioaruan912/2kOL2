@@ -98,6 +98,24 @@ export interface PlayerDetail extends PlayerSummary {
   synthetic?: boolean;
 }
 
+export type BadgeLevelCn = "紫" | "金" | "银" | "铜";
+
+export interface BadgeCondition {
+  name: string;
+  level: BadgeLevelCn;
+}
+
+export interface AttributeCondition {
+  name: string;
+  min: number;
+}
+
+export interface AdvancedFilterState {
+  badges: BadgeCondition[];
+  attributes: AttributeCondition[];
+  playTypes: number[];
+}
+
 export type DataSourceMode = "live" | "local";
 
 export interface DatasetMeta {

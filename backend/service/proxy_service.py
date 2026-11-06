@@ -1,5 +1,6 @@
 import time
 import json
+import hashlib
 import threading
 from typing import Dict, Any, List, Optional
 
@@ -65,6 +66,73 @@ class ProxyService:
                 return db.search_players(keyword=keyword, pos=pos, sort_by=sort_by, desc=desc, limit=limit)
 
         return single_flight.do(cache_key, _fetch_from_upstream)
+
+    def search_players_advanced(
+        self,
+        filters: Dict[str, Any],
+        keyword: str = "",
+        team: str = "",
+        page: int = 1,
+        page_size: int = 24,
+        sort_field: str = "overall",
+        sort_order: str = "desc",
+    ) -> Dict[str, Any]:
+        """细节筛选：把徽章 / 属性 / 战术等条件透传给官方搜索接口。"""
+        page = max(1, int(page or 1))
+        page_size = max(1, min(int(page_size or 24), 100))
+        sort_field = sort_field if sort_field in ("overall", "price") else "overall"
+        sort_order = "asc" if str(sort_order).lower() == "asc" else "desc"
+
+        signature = hashlib.md5(
+            json.dumps(
+                {
+                    "f": filters or {},
+                    "k": keyword,
+                    "t": team,
+                    "p": page,
+                    "s": page_size,
+                    "sf": sort_field,
+                    "so": sort_order,
+                },
+                sort_keys=True,
+                ensure_ascii=False,
+            ).encode("utf-8")
+        ).hexdigest()
+        cache_key = f"proxy:advanced:{signature}"
+        cached = cache.get(cache_key)
+        if cached:
+            return cached
+
+        def _fetch():
+            if not breaker.can_execute():
+                raise RuntimeError("上游接口暂不可用，请稍后重试")
+
+            payload: Dict[str, Any] = {
+                "page": page,
+                "page_size": page_size,
+                "sort": {"field": sort_field, "order": sort_order},
+            }
+            if keyword:
+                payload["keyword"] = keyword
+            if team:
+                payload["team"] = team
+            if filters:
+                payload["filters"] = filters
+
+            res = default_client.request("/ol2-player-search", method="POST", data=payload)
+            breaker.record_success()
+            data = res.get("data", {}) or {}
+            result = {
+                "list": data.get("list", []) or [],
+                "total": int(data.get("total", 0) or 0),
+                "page": page,
+                "page_size": page_size,
+                "source": "realtime",
+            }
+            cache.set(cache_key, result, 120)
+            return result
+
+        return single_flight.do(cache_key, _fetch)
 
     def get_all_players_catalog(self, force_refresh: bool = False) -> List[Dict[str, Any]]:
         cache_key = "proxy:players:all_catalog"

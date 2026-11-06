@@ -1,3 +1,4 @@
+import json
 import mimetypes
 import os
 import sys
@@ -103,6 +104,34 @@ def get_players(
             }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/players/advanced")
+def get_players_advanced(
+    filters: str = Query("{}", description="JSON 字符串，包含徽章、属性、战术、区间等条件"),
+    keyword: str = Query("", description="姓名 / 球队关键词"),
+    team: str = Query("", description="球队筛选"),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(24, ge=1, le=100),
+    sort_field: str = Query("overall", description="overall 或 price"),
+    sort_order: str = Query("desc", description="asc 或 desc"),
+):
+    try:
+        parsed = json.loads(filters or "{}")
+        if not isinstance(parsed, dict):
+            parsed = {}
+        data = proxy_service.search_players_advanced(
+            parsed,
+            keyword=keyword,
+            team=team,
+            page=page,
+            page_size=page_size,
+            sort_field=sort_field,
+            sort_order=sort_order,
+        )
+        return {"code": 0, **data}
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"细节筛选需要官方实时接口：{e}")
 
 
 @app.get("/api/player/{player_id}")
