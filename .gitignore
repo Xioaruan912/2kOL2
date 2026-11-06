@@ -1,0 +1,14 @@
+__pycache__/
+*.py[cod]
+*$py.class
+*.db
+.env
+venv/
+.idea/
+.vscode/
+*.log
+scripts/shots/
+frontend/node_modules/
+*.tsbuildinfo
+frontend/vite.log
+frontend/dist/

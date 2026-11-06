@@ -1,0 +1,110 @@
+/* ============================================================
+   COURTSIDE DB - 设计令牌
+   形态：数据终端（深石墨外壳 + 暖白数据面 + 单一橙色强调）
+   圆角规则：容器与按钮 3px；离散筛选 chip / 分段控件全圆角
+   ============================================================ */
+
+:root {
+  /* 结构色 */
+  --ink-900: #141519;
+  --ink-850: #191a1f;
+  --ink-800: #1f2026;
+  --ink-700: #2a2c33;
+  --ink-600: #383b43;
+  --ink-500: #4c5059;
+  --ink-400: #6d717b;
+  --ink-300: #8d919b;
+
+  /* 数据面 */
+  --canvas: #f5f3ef;
+  --surface: #fffefb;
+  --surface-2: #faf9f6;
+  --surface-3: #efede7;
+  --line: #e4e1d9;
+  --line-strong: #d5d1c7;
+
+  /* 文本 */
+  --text: #1a1b1e;
+  --text-2: #565a62;
+  --text-3: #85888f;
+  --text-invert: #f4f2ee;
+  --text-invert-2: #a9adb6;
+
+  /* 强调色（唯一） */
+  --accent: #e1532b;
+  --accent-strong: #c1441f;
+  --accent-soft: #fbeae3;
+  --accent-ink: #8f3214;
+
+  /* 稀有度 */
+  --gold: #b08a2b;
+  --gold-soft: #f4ead0;
+  --silver: #7c848f;
+  --bronze: #9a6b45;
+  --purple: #7852ae;
+
+  /* 热区 */
+  --zone-hot: #e03c2d;
+  --zone-neutral: #b39a55;
+  --zone-cold: #3865c4;
+
+  /* 语义 */
+  --positive: #2f7d54;
+  --warning: #b4801f;
+  --danger: #b7372a;
+
+  /* 排版 */
+  --font-ui: "PingFang SC", "Microsoft YaHei", "Hiragino Sans GB", "Noto Sans SC",
+    system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-num: "Bahnschrift", "DIN Alternate", "SF Mono", "Cascadia Mono", ui-monospace,
+    "JetBrains Mono", monospace;
+  --fs-11: 11px;
+  --fs-12: 12px;
+  --fs-13: 13px;
+  --fs-14: 14px;
+  --fs-15: 15px;
+  --fs-16: 16px;
+  --fs-18: 18px;
+  --fs-20: 20px;
+  --fs-24: 24px;
+  --fs-28: 28px;
+  --fs-34: 34px;
+  --fs-44: 44px;
+  --fs-64: 64px;
+
+  /* 间距 */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 20px;
+  --sp-6: 24px;
+  --sp-8: 32px;
+  --sp-10: 40px;
+  --sp-12: 48px;
+
+  /* 形状 */
+  --r-xs: 2px;
+  --r-sm: 3px;
+  --r-md: 4px;
+  --r-pill: 999px;
+
+  /* 阴影（贴合暖白背景，不用纯黑） */
+  --shadow-1: 0 1px 0 rgba(26, 27, 30, 0.04), 0 1px 2px rgba(26, 27, 30, 0.05);
+  --shadow-2: 0 6px 20px rgba(26, 27, 30, 0.08);
+  --shadow-nav: 0 1px 0 rgba(0, 0, 0, 0.25);
+
+  /* 布局 */
+  --nav-h: 60px;
+  --tabs-h: 48px;
+  --container: 1340px;
+  --motion-fast: 120ms cubic-bezier(0.2, 0.7, 0.3, 1);
+  --motion-base: 180ms cubic-bezier(0.2, 0.7, 0.3, 1);
+
+  /* 层级 */
+  --z-nav: 40;
+  --z-tabs: 30;
+  --z-tray: 45;
+  --z-modal: 60;
+  --z-toast: 70;
+}

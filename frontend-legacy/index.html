@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-type="software">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>2KOL2 球员与身价情报站 | 2KOL2 Market Intelligence</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <!-- Header -->
+  <header>
+    <div class="container nav-wrapper">
+      <a href="/" class="brand">
+        <span class="brand-badge">2KOL2</span>
+        <span class="brand-title">球员身价情报站</span>
+        <span class="brand-sub">PC 端游全量库 (1469位)</span>
+      </a>
+
+      <div class="nav-controls">
+        <div class="mode-toggle">
+          <button class="mode-btn active" data-mode="realtime" title="实时代理：每次动态协商 X25519 秘钥向官方实时搜索并获取最新身价">实时代理 (Mode 1)</button>
+          <button class="mode-btn" data-mode="db" title="离线落库：从本地 SQLite 数据库极速读取全量 1469 名球星">离线落库 (Mode 2)</button>
+        </div>
+
+        <div class="status-indicator">
+          <div class="status-dot" id="statusDot"></div>
+          <span id="statusText">全量球星库已就绪 (1469位)</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="container">
+    <!-- Metrics Strip -->
+    <section class="metrics-strip">
+      <div class="metric-card">
+        <div class="metric-label">已索引球员总数</div>
+        <div class="metric-value" id="metricTotal">1469</div>
+        <div class="metric-trend">覆盖端游全量现役、历史、陈列室球星</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">市场当前标王</div>
+        <div class="metric-value" id="metricTopPlayer" style="font-size: 20px; color: #f59e0b;">姚明 (06)</div>
+        <div class="metric-trend">当前身价最高的王牌球星</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">最高参考身价 (7突)</div>
+        <div class="metric-value" id="metricTopPrice" style="color: var(--gold);">7.36亿</div>
+        <div class="metric-trend">7 突市场实时基准折算</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">代理转发平均耗时</div>
+        <div class="metric-value" id="metricLatency" style="color: var(--accent-cyan);">--</div>
+        <div class="metric-trend">X25519 握手 + 端到端解密</div>
+      </div>
+    </section>
+
+    <!-- Toolbar: Search & Position Filters -->
+    <section class="toolbar">
+      <div class="search-box">
+        <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="8"></circle>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
+        <input type="text" id="searchInput" class="search-input" placeholder="输入球员名称（如：姚明 / 库里 / 科比 / 乔丹 / 麦迪）快速检索...">
+      </div>
+
+      <div class="filter-group">
+        <button class="filter-pill active" data-pos="">全部位置</button>
+        <button class="filter-pill" data-pos="PG">控卫 PG</button>
+        <button class="filter-pill" data-pos="SG">分卫 SG</button>
+        <button class="filter-pill" data-pos="SF">小前 SF</button>
+        <button class="filter-pill" data-pos="PF">大前 PF</button>
+        <button class="filter-pill" data-pos="C">中锋 C</button>
+      </div>
+    </section>
+
+    <!-- Player Cards Grid (Replica of Mini Program Style) -->
+    <section class="player-grid" id="playerGrid">
+      <div class="state-box">正在加载全量球员数据...</div>
+    </section>
+  </main>
+
+  <!-- Player Intelligence Drawer / Modal (Replica of Mini Program Detail) -->
+  <div class="modal-backdrop" id="playerModal">
+    <div class="modal-content">
+      <button class="modal-close-btn" id="modalClose">&times;</button>
+
+      <!-- Hero Header -->
+      <div class="player-detail-hero">
+        <div class="hero-main">
+          <div class="hero-avatar-wrap">
+            <img class="hero-avatar" id="heroAvatar" src="" alt="avatar">
+          </div>
+          <div class="hero-info">
+            <div class="hero-name-row">
+              <span class="hero-name" id="heroName">--</span>
+              <span class="hero-pos-style" id="heroPosStyle">C 攻防双向球员</span>
+              <span class="tag-series" id="heroSeries">陈列室</span>
+            </div>
+            <div class="hero-details-row">
+              <span id="heroHeightSpan">身高 -- | 臂展 --</span>
+              <span id="heroTeamSpan">球队 --</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Controls Pills Bar -->
+      <div class="control-pills-bar">
+        <div class="pill-select-group">
+          <span>等级 20</span>
+          <span>突破</span>
+          <select id="gradeSelect" class="custom-select">
+            <option value="7" selected>突破 7</option>
+            <option value="6">突破 6</option>
+            <option value="5">突破 5</option>
+            <option value="4">突破 4</option>
+            <option value="3">突破 3</option>
+            <option value="2">突破 2</option>
+            <option value="1">突破 1</option>
+          </select>
+        </div>
+        <div class="pill-select-group">
+          <span>特训: 5 满训</span>
+          <label style="display:flex; align-items:center; gap:4px; cursor:pointer;">
+            <input type="checkbox" checked id="bondCheck"> 羁绊
+          </label>
+        </div>
+      </div>
+
+      <!-- 6 Tabs Navigation -->
+      <div class="detail-tab-bar">
+        <div class="tab-item active" data-tab="tabOverview">综合</div>
+        <div class="tab-item" data-tab="tabAttributes">属性</div>
+        <div class="tab-item" data-tab="tabBadges">徽章</div>
+        <div class="tab-item" data-tab="tabAnimations">动作</div>
+        <div class="tab-item" data-tab="tabTendencies">倾向</div>
+        <div class="tab-item" data-tab="tabTactics">战术类型</div>
+      </div>
+
+      <!-- Tab Panels -->
+      <div class="tab-panel-content">
+        <!-- Tab 1: 综合 -->
+        <div class="tab-panel active" id="tabOverview">
+          <div class="overview-top-row">
+            <div class="overall-display-box">
+              <span class="overall-display-lbl">能力</span>
+              <span class="overall-display-num" id="overviewOverallNum">134</span>
+            </div>
+            <div style="display:flex; flex-direction:column; align-items:flex-end; gap:6px;">
+              <span style="font-size:12px; color:var(--text-muted);">徽章数</span>
+              <div class="badge-hexes" id="overviewBadgeHexes">
+                <span class="hex-badge hex-bronze">1</span>
+                <span class="hex-badge hex-silver">17</span>
+                <span class="hex-badge hex-gold">11</span>
+                <span class="hex-badge hex-purple">5</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 11-Dimension Radar Spider Chart -->
+          <div style="font-size:14px; font-weight:700; margin-bottom:8px; color:var(--text-muted);">攻防维度雷达图 (Radar Chart)</div>
+          <div class="radar-chart-container">
+            <canvas id="radarCanvas" width="360" height="300"></canvas>
+          </div>
+
+          <!-- Hotzone Graphic (14 Districts) -->
+          <div class="hotzone-container">
+            <div class="hotzone-header">实战投篮热区分布 (Hotzones)</div>
+            <div class="hotzone-court-wrapper" id="hotzoneCourtWrapper">
+              <!-- SVG Court Injected by JS -->
+            </div>
+            <div class="hotzone-legend">
+              <div class="legend-item"><div class="legend-color color-red"></div><span>热区 (高命中)</span></div>
+              <div class="legend-item"><div class="legend-color color-yellow"></div><span>中性</span></div>
+              <div class="legend-item"><div class="legend-color color-blue"></div><span>冷区</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab 2: 属性 -->
+        <div class="tab-panel" id="tabAttributes">
+          <div class="attributes-list" id="attributesList">
+            <div class="state-box">加载属性中...</div>
+          </div>
+        </div>
+
+        <!-- Tab 3: 徽章 -->
+        <div class="tab-panel" id="tabBadges">
+          <div class="badge-list-grid" id="badgesList">
+            <div class="state-box">加载徽章中...</div>
+          </div>
+        </div>
+
+        <!-- Tab 4: 动作 -->
+        <div class="tab-panel" id="tabAnimations">
+          <!-- Shot Timings Box -->
+          <div class="shot-time-box">
+            <div class="shot-time-title">投篮包时间 (Shot Timing)</div>
+            <div class="shot-time-row">
+              <span style="color:var(--text-muted);">投篮条时间</span>
+              <strong id="timeMeter">-- ms</strong>
+            </div>
+            <div class="shot-time-row">
+              <span style="color:var(--text-muted);">球离手时间</span>
+              <strong id="timeRelease">-- ms</strong>
+            </div>
+            <div class="shot-time-row">
+              <span style="color:var(--text-muted);">投篮总时间</span>
+              <strong id="timeOverall" style="color:var(--accent-gold);">-- ms</strong>
+            </div>
+          </div>
+
+          <!-- Animation Styles -->
+          <div style="font-size:14px; font-weight:700; margin-bottom:12px; color:var(--text-muted);">动作风格包清单</div>
+          <div class="attributes-list" id="animationsList">
+            <div class="state-box">加载动作数据中...</div>
+          </div>
+        </div>
+
+        <!-- Tab 5: 倾向 -->
+        <div class="tab-panel" id="tabTendencies">
+          <div class="tendency-category-pills" id="tendencyFilterPills">
+            <button class="tendency-pill active" data-cat="all">全部</button>
+            <button class="tendency-pill" data-cat="投篮">投篮</button>
+            <button class="tendency-pill" data-cat="篮下">篮下</button>
+            <button class="tendency-pill" data-cat="突破">突破</button>
+            <button class="tendency-pill" data-cat="背身">背身</button>
+            <button class="tendency-pill" data-cat="传球">传球</button>
+            <button class="tendency-pill" data-cat="防守">防守</button>
+          </div>
+          <div class="tendency-grid" id="tendenciesGrid">
+            <div class="state-box">加载战术倾向中...</div>
+          </div>
+        </div>
+
+        <!-- Tab 6: 战术类型 & 30天身价走势 -->
+        <div class="tab-panel" id="tabTactics">
+          <div class="tactics-card">
+            <div style="font-size:15px; font-weight:700; margin-bottom:12px;">战术角色定位</div>
+            <div class="tactic-row">
+              <span style="color:var(--text-muted);">是否主控球权</span>
+              <strong id="tacticIsBallHandler">否</strong>
+            </div>
+            <div class="tactic-row">
+              <span style="color:var(--text-muted);">战术类型 1</span>
+              <strong id="tacticType1">--</strong>
+            </div>
+            <div class="tactic-row">
+              <span style="color:var(--text-muted);">战术类型 2</span>
+              <strong id="tacticType2">--</strong>
+            </div>
+            <div class="tactic-row">
+              <span style="color:var(--text-muted);">战术类型 3</span>
+              <strong id="tacticType3">--</strong>
+            </div>
+            <div class="tactic-row">
+              <span style="color:var(--text-muted);">战术类型 4</span>
+              <strong id="tacticType4">--</strong>
+            </div>
+          </div>
+
+          <!-- 30-day Price Trend Chart -->
+          <div style="background:#161a25; border:1px solid var(--border-color); border-radius:12px; padding:16px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+              <span style="font-size:15px; font-weight:700;">30 天历史身价走势图</span>
+              <div style="font-size:12px; display:flex; gap:12px;">
+                <span>7日涨跌: <strong id="modal7dChange">--</strong></span>
+                <span>30日涨跌: <strong id="modal30dChange">--</strong></span>
+              </div>
+            </div>
+            <canvas id="priceCanvas" height="220" style="width:100%; display:block;"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="js/api.js"></script>
+  <script src="js/chart.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
