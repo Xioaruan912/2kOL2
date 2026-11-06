@@ -234,7 +234,7 @@ export function FilterPanel({ filters, onClose, onApply }: FilterPanelProps) {
           <div className="fc-field">
             <div className="fc-field__row">
               <span className="fc-field__label">价格（万）</span>
-              <span className="fc-field__hint">无市价球员不参与</span>
+              <span className="fc-field__hint">快捷档位为价格上限</span>
             </div>
             <div className="range-grid">
               <NumberField
@@ -259,14 +259,14 @@ export function FilterPanel({ filters, onClose, onApply }: FilterPanelProps) {
                   key={value}
                   type="button"
                   className={
-                    values.priceMin === value && values.priceMax === undefined
+                    values.priceMax === value && values.priceMin === undefined
                       ? "chip is-active"
                       : "chip"
                   }
-                  title={`${value.toLocaleString("zh-CN")} 万`}
-                  onClick={() => patch({ priceMin: value, priceMax: undefined })}
+                  title={`最高 ${value.toLocaleString("zh-CN")} 万`}
+                  onClick={() => patch({ priceMax: value, priceMin: undefined })}
                 >
-                  {formatWanShort(value)}+
+                  ≤ {formatWanShort(value)}
                 </button>
               ))}
             </div>

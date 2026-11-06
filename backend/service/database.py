@@ -161,6 +161,27 @@ class Database:
             d["PlayerSort"] = d.get("player_sort", "")
             return d
 
+    def resolve_player_id(self, value: str) -> Optional[str]:
+        """官方分享链接可能使用内部 id（raw_json 的 id），这里解析成 player_id。"""
+        try:
+            num = int(str(value))
+        except (TypeError, ValueError):
+            return None
+        patterns = [
+            f'%"id": {num},%',
+            f'%"id": {num}}}%',
+            f'%"id":{num},%',
+            f'%"id":{num}}}%',
+        ]
+        with self._get_connection() as conn:
+            for pattern in patterns:
+                row = conn.execute(
+                    "SELECT player_id FROM players WHERE raw_json LIKE ? LIMIT 1", (pattern,)
+                ).fetchone()
+                if row:
+                    return row["player_id"]
+        return None
+
     def get_player_detail(self, player_id: str, grade: int = 7) -> Optional[Dict[str, Any]]:
         with self._get_connection() as conn:
             cursor = conn.cursor()

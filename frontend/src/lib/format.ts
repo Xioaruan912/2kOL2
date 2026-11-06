@@ -1,19 +1,27 @@
+function adaptivePrice(raw: number): string {
+  if (raw >= 100_000_000) return `${formatScaled(raw / 100_000_000)} 亿`;
+  if (raw >= 10_000_000) return `${formatScaled(raw / 10_000_000)} 千万`;
+  if (raw >= 1_000_000) return `${formatScaled(raw / 1_000_000)} 百万`;
+  if (raw >= 10_000) return `${formatScaled(raw / 10_000)} 万`;
+  return raw.toLocaleString("zh-CN");
+}
+
+function formatScaled(value: number): string {
+  const rounded = Math.round(value * 100) / 100;
+  return Number.isInteger(rounded)
+    ? rounded.toLocaleString("zh-CN")
+    : rounded.toFixed(2).replace(/0$/, "");
+}
+
 export function formatPrice(value: number): string {
   if (!value) return "无市价";
-  return `${Math.round(value / 10_000).toLocaleString("zh-CN")} 万`;
+  return adaptivePrice(value);
 }
 
 /** 把「万」为单位的数值转成亿 / 千万 / 百万的简短描述 */
 export function formatWanShort(wan: number): string {
   if (!Number.isFinite(wan)) return "";
-  if (wan >= 10000) return `${trimDecimal(wan / 10000)} 亿`;
-  if (wan >= 1000) return `${trimDecimal(wan / 1000)} 千万`;
-  if (wan >= 100) return `${trimDecimal(wan / 100)} 百万`;
-  return `${wan.toLocaleString("zh-CN")} 万`;
-}
-
-function trimDecimal(value: number): string {
-  return Number.isInteger(value) ? String(value) : value.toFixed(1).replace(/\.0$/, "");
+  return adaptivePrice(wan * 10_000);
 }
 
 export function formatPriceFull(value: number): string {

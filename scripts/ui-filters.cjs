@@ -27,11 +27,32 @@ function check(name, ok, extra = "") {
   await p.waitForTimeout(600);
   const priceCount = await p.locator(".results-count strong").textContent();
   const firstPrice = await p.locator(".price-cell__main").first().textContent();
-  check("价格按万筛选", priceCount === "3" && (firstPrice ?? "").includes("万"), `count=${priceCount} price=${firstPrice}`);
+  check(
+    "价格按万输入筛选",
+    priceCount === "3" && /亿|千万|百万|万/.test(firstPrice ?? ""),
+    `count=${priceCount} price=${firstPrice}`,
+  );
   await p.locator(".active-chips .chip-link").click();
   await p.waitForTimeout(400);
 
-  // 3. 总评 >= 135（本地）
+  // 3. 价格上限预设：≤ 1 百万
+  await p.locator(".btn--filter").click();
+  await p.waitForSelector(".filter-card");
+  await p.locator('.filter-card .chip:has-text("≤ 1 百万")').click();
+  await p.waitForTimeout(250);
+  const priceHint = await p.locator(".fc-field__convert").textContent();
+  await p.locator(".filter-card__foot .btn--primary").click();
+  await p.waitForTimeout(700);
+  const capCount = await p.locator(".results-count strong").textContent();
+  check(
+    "价格上限预设 ≤ 1 百万",
+    (priceHint ?? "").includes("≤ 1 百万") && Number(capCount) > 0,
+    `hint=${priceHint} count=${capCount}`,
+  );
+  await p.locator(".active-chips .chip-link").click();
+  await p.waitForTimeout(400);
+
+  // 4. 总评 >= 135（本地）
   await p.locator(".btn--filter").click();
   await p.waitForSelector(".filter-card");
   await p.locator('input[aria-label="总评最低值"]').fill("135");

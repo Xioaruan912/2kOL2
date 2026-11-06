@@ -30,7 +30,7 @@ const KEY_TENDENCIES = [
 interface Row {
   label: string;
   values: Array<number | string>;
-  best?: number;
+  best?: number | string;
 }
 
 export function ComparePage() {
@@ -105,13 +105,12 @@ export function ComparePage() {
       ),
     },
     {
-      label: "价格（万）",
-      values: details.map((item) =>
-        item.price ? Math.round(item.price / 10000) : "无市价",
-      ),
-      best: Math.round(
-        Math.min(...details.filter((item) => item.price > 0).map((item) => item.price)) / 10000,
-      ),
+      label: "价格",
+      values: details.map((item) => formatPrice(item.price)),
+      best: (() => {
+        const prices = details.filter((item) => item.price > 0).map((item) => item.price);
+        return prices.length ? formatPrice(Math.min(...prices)) : undefined;
+      })(),
     },
   ];
 

@@ -129,7 +129,7 @@ export async function getPlayerDetail(id: string): Promise<PlayerDetail>;
 | :--- | :---: | :--- | :--- |
 | `/api/players` | GET | `keyword` `pos` `team` `sort_by` `desc` `mode` `limit` | 球员目录（`mode=db` 走本地库，`realtime` 走实时代理） |
 | `/api/players/advanced` | GET | `filters`(JSON) `keyword` `team` `page` `page_size` `sort_field` `sort_order` | 细节筛选：徽章 / 属性 / 战术 / 区间，透传官方搜索接口 |
-| `/api/player/{playerId}` | GET | `grade` (1-7) | 球员完整详情：属性、徽章、雷达、热区、动作包、倾向、战术 |
+| `/api/player/{playerId}` | GET | `grade` (1-7) | 球员完整详情；同时兼容官方分享链接的内部 id（如 977 → 4313） |
 | `/api/player/{playerId}/price-history` | GET | `days` | 身价走势（后端预留，前端尚未展示） |
 | `/api/sync/status` / `/api/sync/trigger` | GET / POST | `top_n` | 同步任务状态与手动同步 |
 | `/api/system/health` | GET | - | 熔断器与系统健康 |
@@ -139,7 +139,8 @@ export async function getPlayerDetail(id: string): Promise<PlayerDetail>;
 **球员库**
 - 姓名（中/英）、球队、类型关键词搜索
 - 球队、类型、卡系下拉筛选；PG/SG/SF/PF/C 位置多选；徽章数量与紫/金徽章快捷筛选
-- 价格统一以「万」为单位展示（列表、详情、对比、筛选一致），筛选阈值同样按万输入，价格预设使用「千万 / 百万」档位
+- 价格自适应单位展示：≥1 亿显示为「n 亿」，≥1 千万显示为「n 千万」，≥1 百万显示为「n 百万」，其余为「n 万」
+- 价格筛选输入以万为单位，快捷档位为「价格上限」（≤ n 千万 / n 百万），选中后显示折合值
 - 精细筛选以整卡内嵌在筛选栏下方（非侧边抽屉）：桌面三栏（区间 / 徽章 / 属性+战术），平板两栏，移动端单栏且操作条吸底
 - 徽章选择器：紫/金/银/铜等级切换 + 名称搜索 + 分类筛选 + 点击添加，已选条件带等级色点
 - 属性阈值（如三分投篮 ≥ 130）、战术类型多选；区间条件本地即时生效，徽章 / 属性 / 战术走官方实时接口并分页，结果标记「精细筛选 · 官方实时」
@@ -189,7 +190,7 @@ export async function getPlayerDetail(id: string): Promise<PlayerDetail>;
 | 对比页 | 正常 | 正常 | 正常 | 正常 |
 | 控制台错误 | 无 | 无 | 无 | 无 |
 
-细节筛选回归（`node scripts/ui-filters.cjs`，12 项全部 PASS）：面板打开、价格按万筛选（≥50,000 万命中 3 人）、总评区间、条件标签、徽章选择器（神射手 + 紫命中 2 人）、移除条件、属性筛选（三分投篮≥130 命中 4 人）、战术筛选、位置多选、移动端面板、移动端身高筛选、无报错。
+细节筛选回归（`node scripts/ui-filters.cjs`，13 项全部 PASS）：卡片展开、价格按万输入筛选（≥50,000 万命中 3 人）、价格上限预设（≤1 百万命中 764 人）、总评区间、条件标签、徽章选择器（神射手 + 紫命中 2 人）、移除条件、属性筛选（三分投篮≥130 命中 4 人）、战术筛选、位置多选、移动端卡片、移动端身高筛选、无报错。
 
 功能回归（`node scripts/ui-functions.cjs`，16 项全部 PASS）：
 

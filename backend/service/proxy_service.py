@@ -205,6 +205,12 @@ class ProxyService:
         return single_flight.do(cache_key, _fetch)
 
     def get_player_detail_realtime(self, player_id: str, grade: int = 7) -> Dict[str, Any]:
+        player_id = str(player_id)
+        # 兼容官方分享链接里的内部 id（例如 /player/977 -> playerId 4313）
+        if not db.get_player(player_id):
+            resolved = db.resolve_player_id(player_id)
+            if resolved:
+                player_id = resolved
         cache_key = f"proxy:detail:{player_id}:{grade}"
         cached = cache.get(cache_key)
         if cached:

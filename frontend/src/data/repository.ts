@@ -237,6 +237,7 @@ function normalizeApiDetail(raw: Record<string, unknown>, summary: PlayerSummary
 
   return {
     ...summary,
+    id: String(raw.playerId ?? summary.id),
     overall: toInt(raw.TrainedOverall, summary.overall) || summary.overall,
     baseOverall: toInt(raw.OverAll, summary.overall),
     badgeCounts: badges.length ? badgeCounts : summary.badgeCounts,
@@ -300,25 +301,67 @@ export async function getCatalog(): Promise<PlayerSummary[]> {
 
 export async function getPlayerDetail(id: string): Promise<PlayerDetail> {
   const [catalog, localDetails] = await Promise.all([getCatalog(), loadLocalDetails()]);
-  const summary = catalog.find((p) => p.id === id);
-  if (!summary) throw new Error("未找到该球员");
+  const summary = catalog.find((player) => player.id === id);
 
-  const localDetail = localDetails[id];
-  if (localDetail) return withSummary(localDetail, summary);
+  if (summary) {
+    const localDetail = localDetails[id];
+    if (localDetail) return withSummary(localDetail, summary);
+  }
 
   try {
     const payload = await requestJson<{ data?: Record<string, unknown> }>(
       `/api/player/${id}?grade=7`,
+      15000,
     );
-    if (payload.data && payload.data.TrainedAttribute) {
+    const raw = payload.data;
+    if (raw && raw.TrainedAttribute) {
       setMode("live");
-      return normalizeApiDetail(payload.data, summary);
+      const resolvedId = String(raw.playerId ?? id);
+      const canonical =
+        catalog.find((player) => player.id === resolvedId) ??
+        summary ??
+        summaryFromDetail(raw, id);
+      return normalizeApiDetail(raw, canonical);
     }
   } catch {
-    // 忽略，走推演
+    // 忽略，继续走快照或推演
   }
 
+  if (!summary) throw new Error("未找到该球员");
   return synthesizeDetail(summary);
+}
+
+/** 球员不在目录中时，用详情接口的数据补一份摘要 */
+function summaryFromDetail(raw: Record<string, unknown>, fallbackId: string): PlayerSummary {
+  const badges = asArray<Record<string, unknown>>(raw.ActiveBadges ?? raw.ol2Badges);
+  const badgeCounts = { bronze: 0, silver: 0, gold: 0, purple: 0 };
+  badges.forEach((badge) => {
+    const level = LEVEL_MAP[String(badge.badgeLevel ?? "")] ?? "bronze";
+    badgeCounts[level] += 1;
+  });
+  return {
+    id: String(raw.playerId ?? fallbackId),
+    name: String(raw.showName ?? ""),
+    nameEn: String(raw.PlayerEnName ?? ""),
+    team: String(raw.teamAbbr ?? ""),
+    positions: Array.from(
+      new Set(
+        String(raw.Pos ?? "")
+          .split("|")
+          .filter(Boolean),
+      ),
+    ),
+    archetype: String(raw.PlayerSort ?? ""),
+    series: String(raw.cardSeries ?? ""),
+    version: toInt(raw.version),
+    grade: toInt(raw.grade, 7),
+    overall: toInt(raw.TrainedOverall ?? raw.OverAll),
+    price: 0,
+    portrait: String(raw.playerImg ?? ""),
+    height: parseCm(raw.Height),
+    wingspan: parseCm(raw.Wingspan),
+    badgeCounts,
+  };
 }
 
 function withSummary(detail: PlayerDetail, summary: PlayerSummary): PlayerDetail {
