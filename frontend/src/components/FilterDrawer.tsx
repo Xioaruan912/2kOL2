@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
-import { X } from "@phosphor-icons/react";
+import { useEffect, useMemo, useState } from "react";
+import { Check, Plus, X } from "@phosphor-icons/react";
 import type { AttributeCondition, BadgeCondition, BadgeLevelCn } from "../data/types";
 import type { FilterState } from "../lib/filtering";
+import { SearchField } from "./SearchField";
 import {
   ATTRIBUTE_FILTER_GROUPS,
   BADGE_FILTER_GROUPS,
@@ -20,6 +21,13 @@ export interface DrawerValues {
   attributes: AttributeCondition[];
   playTypes: number[];
 }
+
+const LEVEL_COLOR: Record<BadgeLevelCn, string> = {
+  紫: "#7852ae",
+  金: "#b08a2b",
+  银: "#7c848f",
+  铜: "#9a6b45",
+};
 
 export function drawerValuesFromFilters(filters: FilterState): DrawerValues {
   return {
@@ -86,13 +94,18 @@ interface FilterDrawerProps {
 
 export function FilterDrawer({ open, filters, onClose, onApply }: FilterDrawerProps) {
   const [values, setValues] = useState<DrawerValues>(() => drawerValuesFromFilters(filters));
-  const [badgeName, setBadgeName] = useState(BADGE_FILTER_GROUPS[0].items[0]);
   const [badgeLevel, setBadgeLevel] = useState<BadgeLevelCn>("紫");
+  const [badgeQuery, setBadgeQuery] = useState("");
+  const [badgeCategory, setBadgeCategory] = useState("all");
   const [attrName, setAttrName] = useState("三分投篮");
   const [attrMin, setAttrMin] = useState<number | undefined>(120);
 
   useEffect(() => {
-    if (open) setValues(drawerValuesFromFilters(filters));
+    if (open) {
+      setValues(drawerValuesFromFilters(filters));
+      setBadgeQuery("");
+      setBadgeCategory("all");
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
@@ -114,6 +127,17 @@ export function FilterDrawer({ open, filters, onClose, onApply }: FilterDrawerPr
     };
   }, [open]);
 
+  const badgeOptions = useMemo(() => {
+    const keyword = badgeQuery.trim();
+    const groups =
+      badgeCategory === "all"
+        ? BADGE_FILTER_GROUPS
+        : BADGE_FILTER_GROUPS.filter((group) => group.label === badgeCategory);
+    return groups.flatMap((group) =>
+      group.items.filter((name) => !keyword || name.includes(keyword)),
+    );
+  }, [badgeCategory, badgeQuery]);
+
   if (!open) return null;
 
   const patch = (next: Partial<DrawerValues>) =>
@@ -124,10 +148,15 @@ export function FilterDrawer({ open, filters, onClose, onApply }: FilterDrawerPr
     value?: number,
   ) => setValues((current) => ({ ...current, [key]: value }));
 
-  const addBadge = () => {
-    if (!badgeName) return;
-    if (values.badges.some((item) => item.name === badgeName && item.level === badgeLevel)) return;
-    patch({ badges: [...values.badges, { name: badgeName, level: badgeLevel }] });
+  const toggleBadge = (name: string) => {
+    const exists = values.badges.some(
+      (item) => item.name === name && item.level === badgeLevel,
+    );
+    patch({
+      badges: exists
+        ? values.badges.filter((item) => !(item.name === name && item.level === badgeLevel))
+        : [...values.badges, { name, level: badgeLevel }],
+    });
   };
 
   const addAttribute = () => {
@@ -153,12 +182,20 @@ export function FilterDrawer({ open, filters, onClose, onApply }: FilterDrawerPr
     values.playTypes.length;
 
   return (
-    <div className="drawer-backdrop" role="dialog" aria-modal="true" aria-label="精细筛选" onClick={onClose}>
+    <div
+      className="drawer-backdrop"
+      role="dialog"
+      aria-modal="true"
+      aria-label="精细筛选"
+      onClick={onClose}
+    >
       <div className="drawer" onClick={(event) => event.stopPropagation()}>
+        <div className="drawer__handle" aria-hidden="true" />
+
         <div className="drawer__head">
           <div>
             <div className="drawer__title">精细筛选</div>
-            <div className="drawer__sub">按区间、徽章、属性与战术筛出球员</div>
+            <div className="drawer__sub">区间即时生效，徽章与属性走官方实时数据</div>
           </div>
           <button type="button" className="icon-btn" aria-label="关闭筛选面板" onClick={onClose}>
             <X size={15} weight="bold" />
@@ -190,7 +227,11 @@ export function FilterDrawer({ open, filters, onClose, onApply }: FilterDrawerPr
                 <button
                   key={value}
                   type="button"
-                  className={values.overallMin === value && values.overallMax === undefined ? "chip is-active" : "chip"}
+                  className={
+                    values.overallMin === value && values.overallMax === undefined
+                      ? "chip is-active"
+                      : "chip"
+                  }
                   onClick={() => patch({ overallMin: value, overallMax: undefined })}
                 >
                   {value}+
@@ -201,34 +242,38 @@ export function FilterDrawer({ open, filters, onClose, onApply }: FilterDrawerPr
 
           <section className="drawer__section">
             <div className="drawer__label">
-              价格
+              价格（万）
               <span className="drawer__hint">无市价球员不会命中价格条件</span>
             </div>
             <div className="range-grid">
               <NumberField
                 value={values.priceMin}
                 onChange={(value) => setRange("priceMin", value)}
-                unit="亿"
+                unit="万"
                 placeholder="最低"
-                ariaLabel="价格最低值（亿）"
+                ariaLabel="价格最低值（万）"
               />
               <NumberField
                 value={values.priceMax}
                 onChange={(value) => setRange("priceMax", value)}
-                unit="亿"
+                unit="万"
                 placeholder="最高"
-                ariaLabel="价格最高值（亿）"
+                ariaLabel="价格最高值（万）"
               />
             </div>
             <div className="preset-row">
-              {[5, 2, 1].map((value) => (
+              {[100000, 50000, 20000, 10000].map((value) => (
                 <button
                   key={value}
                   type="button"
-                  className={values.priceMin === value && values.priceMax === undefined ? "chip is-active" : "chip"}
+                  className={
+                    values.priceMin === value && values.priceMax === undefined
+                      ? "chip is-active"
+                      : "chip"
+                  }
                   onClick={() => patch({ priceMin: value, priceMax: undefined })}
                 >
-                  {value} 亿+
+                  {value.toLocaleString("zh-CN")} 万+
                 </button>
               ))}
             </div>
@@ -257,7 +302,11 @@ export function FilterDrawer({ open, filters, onClose, onApply }: FilterDrawerPr
                 <button
                   key={value}
                   type="button"
-                  className={values.heightMin === value && values.heightMax === undefined ? "chip is-active" : "chip"}
+                  className={
+                    values.heightMin === value && values.heightMax === undefined
+                      ? "chip is-active"
+                      : "chip"
+                  }
                   onClick={() => patch({ heightMin: value, heightMax: undefined })}
                 >
                   {value}cm+
@@ -269,45 +318,100 @@ export function FilterDrawer({ open, filters, onClose, onApply }: FilterDrawerPr
           <section className="drawer__section">
             <div className="drawer__label">
               徽章条件
-              <span className="drawer__hint">通过官方实时接口筛选</span>
+              <span className="drawer__hint">选好等级后点击徽章添加</span>
             </div>
-            <div className="badge-add-row">
-              <select
-                className="drawer-select"
-                aria-label="徽章名称"
-                value={badgeName}
-                onChange={(event) => setBadgeName(event.target.value)}
+
+            <div className="level-switch" role="group" aria-label="徽章等级">
+              {BADGE_FILTER_LEVELS.map((level) => (
+                <button
+                  key={level.value}
+                  type="button"
+                  className={
+                    badgeLevel === level.value
+                      ? "level-switch__item is-active"
+                      : "level-switch__item"
+                  }
+                  aria-pressed={badgeLevel === level.value}
+                  onClick={() => setBadgeLevel(level.value)}
+                >
+                  <span
+                    className="level-switch__dot"
+                    style={{ background: LEVEL_COLOR[level.value] }}
+                  />
+                  {level.value}
+                </button>
+              ))}
+            </div>
+
+            <SearchField
+              value={badgeQuery}
+              onChange={setBadgeQuery}
+              placeholder="搜索徽章名称"
+              ariaLabel="搜索徽章名称"
+            />
+
+            <div className="chip-row" role="group" aria-label="徽章分类">
+              <button
+                type="button"
+                className={badgeCategory === "all" ? "chip is-active" : "chip"}
+                onClick={() => setBadgeCategory("all")}
               >
-                {BADGE_FILTER_GROUPS.map((group) => (
-                  <optgroup label={group.label} key={group.label}>
-                    {group.items.map((name) => (
-                      <option value={name} key={name}>
-                        {name}
-                      </option>
-                    ))}
-                  </optgroup>
-                ))}
-              </select>
-              <select
-                className="drawer-select"
-                aria-label="徽章等级"
-                value={badgeLevel}
-                onChange={(event) => setBadgeLevel(event.target.value as BadgeLevelCn)}
-              >
-                {BADGE_FILTER_LEVELS.map((level) => (
-                  <option value={level.value} key={level.value}>
-                    {level.label}
-                  </option>
-                ))}
-              </select>
-              <button type="button" className="btn btn--sm" onClick={addBadge}>
-                添加
+                全部
               </button>
+              {BADGE_FILTER_GROUPS.map((group) => (
+                <button
+                  key={group.label}
+                  type="button"
+                  className={badgeCategory === group.label ? "chip is-active" : "chip"}
+                  onClick={() => setBadgeCategory(group.label)}
+                >
+                  {group.label}
+                </button>
+              ))}
             </div>
+
+            <div className="badge-pick-grid">
+              {badgeOptions.map((name) => {
+                const selected = values.badges.some(
+                  (item) => item.name === name && item.level === badgeLevel,
+                );
+                return (
+                  <button
+                    key={name}
+                    type="button"
+                    className={selected ? "badge-pick is-selected" : "badge-pick"}
+                    aria-pressed={selected}
+                    onClick={() => toggleBadge(name)}
+                  >
+                    <span
+                      className="badge-pick__hex"
+                      style={{ background: LEVEL_COLOR[badgeLevel] }}
+                      aria-hidden="true"
+                    >
+                      {badgeLevel}
+                    </span>
+                    <span className="badge-pick__name">{name}</span>
+                    {selected ? (
+                      <Check size={12} weight="bold" className="badge-pick__mark" />
+                    ) : (
+                      <Plus size={12} weight="bold" className="badge-pick__mark" />
+                    )}
+                  </button>
+                );
+              })}
+              {badgeOptions.length === 0 ? (
+                <div className="badge-pick-empty">没有匹配的徽章，换个关键词试试</div>
+              ) : null}
+            </div>
+
             {values.badges.length ? (
               <div className="drawer__chips">
                 {values.badges.map((badge) => (
                   <span className="cond-chip" key={`${badge.name}-${badge.level}`}>
+                    <span
+                      className="cond-chip__dot"
+                      style={{ background: LEVEL_COLOR[badge.level] }}
+                    />
                     {badge.name}
                     <b>{badge.level}</b>
                     <button
@@ -372,7 +476,9 @@ export function FilterDrawer({ open, filters, onClose, onApply }: FilterDrawerPr
                       aria-label={`移除属性条件 ${attribute.name}`}
                       onClick={() =>
                         patch({
-                          attributes: values.attributes.filter((item) => item.name !== attribute.name),
+                          attributes: values.attributes.filter(
+                            (item) => item.name !== attribute.name,
+                          ),
                         })
                       }
                     >
@@ -415,7 +521,7 @@ export function FilterDrawer({ open, filters, onClose, onApply }: FilterDrawerPr
             重置条件
           </button>
           <button type="button" className="btn btn--primary" onClick={() => onApply(values)}>
-            应用筛选{conditionCount > 0 ? ` (${conditionCount})` : ""}
+            应用筛选{conditionCount > 0 ? ` · ${conditionCount}` : ""}
           </button>
         </div>
       </div>

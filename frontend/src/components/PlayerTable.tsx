@@ -165,8 +165,9 @@ export function PlayerTable({
                 </td>
                 <td className="is-num">
                   <span className="price-cell">
-                    <span className="price-cell__main">{formatPrice(player.price)}</span>
-                    <span className="price-cell__sub">{formatPriceFull(player.price)}</span>
+                    <span className="price-cell__main" title={formatPriceFull(player.price)}>
+                      {formatPrice(player.price)}
+                    </span>
                   </span>
                 </td>
                 <td>

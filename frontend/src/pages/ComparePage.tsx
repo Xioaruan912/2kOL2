@@ -105,9 +105,13 @@ export function ComparePage() {
       ),
     },
     {
-      label: "价格（亿）",
-      values: details.map((item) => (item.price ? (item.price / 100000000).toFixed(2) : "无市价")),
-      best: Math.min(...details.filter((item) => item.price > 0).map((item) => item.price)) / 100000000,
+      label: "价格（万）",
+      values: details.map((item) =>
+        item.price ? Math.round(item.price / 10000) : "无市价",
+      ),
+      best: Math.round(
+        Math.min(...details.filter((item) => item.price > 0).map((item) => item.price)) / 10000,
+      ),
     },
   ];
 
@@ -180,7 +184,7 @@ export function ComparePage() {
                       key={`${row.label}-${index}`}
                       className={isBest ? "cmp-matrix__value is-best" : "cmp-matrix__value"}
                     >
-                      {value}
+                      {typeof value === "number" ? value.toLocaleString("zh-CN") : value}
                     </span>
                   );
                 })}

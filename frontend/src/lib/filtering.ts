@@ -29,7 +29,7 @@ export interface FilterState {
 
 export const RANGE_LIMITS = {
   overall: { min: 0, max: 200, step: 1, unit: "" },
-  price: { min: 0, max: 20, step: 0.1, unit: "亿" },
+  price: { min: 0, max: 200000, step: 1000, unit: "万" },
   height: { min: 150, max: 240, step: 1, unit: "cm" },
 };
 
@@ -154,9 +154,9 @@ export function matchesFilters(player: PlayerSummary, filters: FilterState): boo
   const hasPriceFilter = filters.priceMin !== undefined || filters.priceMax !== undefined;
   if (hasPriceFilter) {
     if (!price) return false;
-    const inYi = price / 100000000;
-    if (filters.priceMin !== undefined && inYi < filters.priceMin) return false;
-    if (filters.priceMax !== undefined && inYi > filters.priceMax) return false;
+    const inWan = price / 10000;
+    if (filters.priceMin !== undefined && inWan < filters.priceMin) return false;
+    if (filters.priceMax !== undefined && inWan > filters.priceMax) return false;
   }
 
   const hasHeightFilter = filters.heightMin !== undefined || filters.heightMax !== undefined;
@@ -250,7 +250,7 @@ export function buildFilterChips(filters: FilterState): FilterChip[] {
       patch: { ovr_min: null, ovr_max: null },
     });
   }
-  const price = rangeLabel(filters.priceMin, filters.priceMax, "亿");
+  const price = rangeLabel(filters.priceMin, filters.priceMax, " 万");
   if (price) {
     chips.push({
       key: "price",
@@ -336,8 +336,8 @@ export function buildServerFilters(filters: FilterState): Record<string, unknown
   if (filters.series) payload.card_series = [filters.series];
   if (filters.overallMin !== undefined) payload.overall_min = filters.overallMin;
   if (filters.overallMax !== undefined) payload.overall_max = filters.overallMax;
-  if (filters.priceMin !== undefined) payload.price_min = Math.round(filters.priceMin * 100000000);
-  if (filters.priceMax !== undefined) payload.price_max = Math.round(filters.priceMax * 100000000);
+  if (filters.priceMin !== undefined) payload.price_min = Math.round(filters.priceMin * 10000);
+  if (filters.priceMax !== undefined) payload.price_max = Math.round(filters.priceMax * 10000);
   if (filters.heightMin !== undefined) payload.height_min = filters.heightMin;
   if (filters.heightMax !== undefined) payload.height_max = filters.heightMax;
   if (filters.advanced.badges.length) payload.badges = filters.advanced.badges;

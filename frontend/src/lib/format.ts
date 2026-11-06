@@ -1,22 +1,10 @@
 export function formatPrice(value: number): string {
   if (!value) return "无市价";
-  if (value >= 100_000_000) {
-    const yi = value / 100_000_000;
-    return `${trimZero(yi.toFixed(2))} 亿`;
-  }
-  if (value >= 10_000) {
-    const wan = value / 10_000;
-    return `${trimZero(wan.toFixed(1))} 万`;
-  }
-  return value.toLocaleString("zh-CN");
+  return `${Math.round(value / 10_000).toLocaleString("zh-CN")} 万`;
 }
 
 export function formatPriceFull(value: number): string {
   return value.toLocaleString("zh-CN");
-}
-
-function trimZero(text: string): string {
-  return text.replace(/\.0+$/, "").replace(/(\.\d*?)0+$/, "$1");
 }
 
 export function formatHeight(value?: number | null): string {
