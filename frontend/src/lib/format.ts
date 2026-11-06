@@ -3,6 +3,19 @@ export function formatPrice(value: number): string {
   return `${Math.round(value / 10_000).toLocaleString("zh-CN")} 万`;
 }
 
+/** 把「万」为单位的数值转成亿 / 千万 / 百万的简短描述 */
+export function formatWanShort(wan: number): string {
+  if (!Number.isFinite(wan)) return "";
+  if (wan >= 10000) return `${trimDecimal(wan / 10000)} 亿`;
+  if (wan >= 1000) return `${trimDecimal(wan / 1000)} 千万`;
+  if (wan >= 100) return `${trimDecimal(wan / 100)} 百万`;
+  return `${wan.toLocaleString("zh-CN")} 万`;
+}
+
+function trimDecimal(value: number): string {
+  return Number.isInteger(value) ? String(value) : value.toFixed(1).replace(/\.0$/, "");
+}
+
 export function formatPriceFull(value: number): string {
   return value.toLocaleString("zh-CN");
 }

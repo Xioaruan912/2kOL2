@@ -6,6 +6,7 @@ import type {
   PlayerSummary,
 } from "../data/types";
 import { BADGE_FILTER_OPTIONS } from "./constants";
+import { formatWanShort } from "./format";
 import { playTypeLabel } from "../data/filters";
 
 export interface FilterState {
@@ -250,7 +251,14 @@ export function buildFilterChips(filters: FilterState): FilterChip[] {
       patch: { ovr_min: null, ovr_max: null },
     });
   }
-  const price = rangeLabel(filters.priceMin, filters.priceMax, " 万");
+  const price =
+    filters.priceMin === undefined && filters.priceMax === undefined
+      ? null
+      : filters.priceMin !== undefined && filters.priceMax !== undefined
+        ? `${formatWanShort(filters.priceMin)} - ${formatWanShort(filters.priceMax)}`
+        : filters.priceMin !== undefined
+          ? `≥ ${formatWanShort(filters.priceMin)}`
+          : `≤ ${formatWanShort(filters.priceMax as number)}`;
   if (price) {
     chips.push({
       key: "price",

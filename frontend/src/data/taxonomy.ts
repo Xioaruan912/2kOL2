@@ -293,7 +293,6 @@ export function capabilityAverage(radar: RadarEntry[], names: string[]): number 
 /* ------------------------------------------------------------------ 排序 */
 
 export const SORT_OPTIONS = [
-  { key: "overall", label: "总评" },
   { key: "price", label: "价格" },
   { key: "badges", label: "徽章数" },
   { key: "height", label: "身高" },

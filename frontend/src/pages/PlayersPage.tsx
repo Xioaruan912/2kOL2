@@ -11,7 +11,7 @@ import {
 import { PlayerTable } from "../components/PlayerTable";
 import { SearchField } from "../components/SearchField";
 import { Select } from "../components/Select";
-import { FilterDrawer, type DrawerValues } from "../components/FilterDrawer";
+import { FilterPanel, type FilterValues } from "../components/FilterPanel";
 import { useCatalog } from "../hooks/useData";
 import { useCompare, useFavorites, pushToast } from "../state/store";
 import { BADGE_FILTER_OPTIONS, PAGE_SIZE } from "../lib/constants";
@@ -46,7 +46,7 @@ function sortPlayers(list: PlayerSummary[], key: SortKey, dir: "asc" | "desc"): 
       case "name":
         return player.name;
       default:
-        return player.overall;
+        return player.price;
     }
   };
   return [...list].sort((a, b) => {
@@ -76,7 +76,7 @@ export function PlayersPage() {
   const { ids: favoriteIds, toggle: toggleFavorite } = useFavorites();
   const { ids: compareIds, toggle: toggleCompare } = useCompare();
   const [params, setParams] = useSearchParams();
-  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [panelOpen, setPanelOpen] = useState(false);
   const [advNonce, setAdvNonce] = useState(0);
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [adv, setAdv] = useState<AdvancedState>({
@@ -88,12 +88,12 @@ export function PlayersPage() {
 
   const filters = useMemo(() => parseFilters(params), [params]);
   const sort = SORT_KEYS.includes((params.get("sort") ?? "") as SortKey)
-    ? ((params.get("sort") ?? "overall") as SortKey)
-    : "overall";
+    ? ((params.get("sort") ?? "price") as SortKey)
+    : "price";
   const dir = params.get("dir") === "asc" ? "asc" : "desc";
   const page = Math.max(1, Number(params.get("page") ?? 1) || 1);
   const advancedActive = hasDetailFilters(filters);
-  const effectiveSort: SortKey = advancedActive ? (sort === "price" ? "price" : "overall") : sort;
+  const effectiveSort: SortKey = advancedActive ? "price" : sort;
 
   const update = (patch: Record<string, string | null>) => {
     const next = new URLSearchParams(params);
@@ -167,7 +167,7 @@ export function PlayersPage() {
       team: filters.team,
       page,
       pageSize: PAGE_SIZE,
-      sortField: effectiveSort === "price" ? "price" : "overall",
+      sortField: "price",
       sortOrder: dir,
     })
       .then((result) => {
@@ -233,7 +233,7 @@ export function PlayersPage() {
     update({ pos: next.join(",") || null });
   };
 
-  const handleApply = (values: DrawerValues) => {
+  const handleApply = (values: FilterValues) => {
     const hasAdvanced =
       values.badges.length > 0 || values.attributes.length > 0 || values.playTypes.length > 0;
     update({
@@ -248,7 +248,8 @@ export function PlayersPage() {
       adv_plays: values.playTypes.length ? values.playTypes.join(",") : null,
       badge: hasAdvanced ? null : params.get("badge"),
     });
-    setDrawerOpen(false);
+    setPanelOpen(false);
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const exitAdvanced = () => {
@@ -365,7 +366,8 @@ export function PlayersPage() {
             <button
               type="button"
               className="btn btn--primary btn--filter"
-              onClick={() => setDrawerOpen(true)}
+              aria-expanded={panelOpen}
+              onClick={() => setPanelOpen((open) => !open)}
             >
               <FunnelSimple size={14} weight="bold" />
               筛选
@@ -407,6 +409,14 @@ export function PlayersPage() {
         ) : null}
       </section>
 
+      {panelOpen ? (
+        <FilterPanel
+          filters={filters}
+          onClose={() => setPanelOpen(false)}
+          onApply={handleApply}
+        />
+      ) : null}
+
       <div className="list-toolbar">
         <span className="results-count">
           共<strong>{busy ? "—" : total}</strong>名球员
@@ -419,7 +429,7 @@ export function PlayersPage() {
         <div className="sort-group" role="group" aria-label="排序方式">
           <span className="filters__label">排序</span>
           {SORT_OPTIONS.map((option) => {
-            const disabled = advancedActive && option.key !== "overall" && option.key !== "price";
+            const disabled = advancedActive && option.key !== "price";
             return (
               <button
                 key={option.key}
@@ -578,12 +588,6 @@ export function PlayersPage() {
         </>
       )}
 
-      <FilterDrawer
-        open={drawerOpen}
-        filters={filters}
-        onClose={() => setDrawerOpen(false)}
-        onApply={handleApply}
-      />
     </div>
   );
 }

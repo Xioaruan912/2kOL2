@@ -1729,6 +1729,10 @@
 /* ---------------------------------------------------------- 响应式 */
 
 @media (max-width: 1080px) {
+  .detail-tabs {
+    top: 102px;
+  }
+
   .detail-hero__inner {
     grid-template-columns: 128px minmax(0, 1fr);
     grid-template-rows: auto auto auto;

@@ -17,13 +17,13 @@ function check(name, ok, extra = "") {
 
   // 1. 打开筛选面板
   await p.locator(".btn--filter").click();
-  await p.waitForSelector(".drawer");
-  check("筛选面板可打开", await p.locator(".drawer").isVisible());
+  await p.waitForSelector(".filter-card");
+  check("筛选卡片可展开", await p.locator(".filter-card").isVisible());
   await p.screenshot({ path: "shots/filter-drawer.png" });
 
   // 2. 价格（万）筛选：≥ 50000 万 = 5 亿 -> 3 人
   await p.locator('input[aria-label="价格最低值（万）"]').fill("50000");
-  await p.locator('.drawer__foot .btn--primary').click();
+  await p.locator('.filter-card__foot .btn--primary').click();
   await p.waitForTimeout(600);
   const priceCount = await p.locator(".results-count strong").textContent();
   const firstPrice = await p.locator(".price-cell__main").first().textContent();
@@ -33,9 +33,9 @@ function check(name, ok, extra = "") {
 
   // 3. 总评 >= 135（本地）
   await p.locator(".btn--filter").click();
-  await p.waitForSelector(".drawer");
+  await p.waitForSelector(".filter-card");
   await p.locator('input[aria-label="总评最低值"]').fill("135");
-  await p.locator('.drawer__foot .btn--primary').click();
+  await p.locator('.filter-card__foot .btn--primary').click();
   await p.waitForTimeout(600);
   const localCount = await p.locator(".results-count strong").textContent();
   const overalls = await p.locator(".overall-num").allTextContents();
@@ -48,12 +48,12 @@ function check(name, ok, extra = "") {
 
   // 5. 徽章选择器：紫 + 搜索神射手 + 点击添加 -> 2
   await p.locator(".btn--filter").click();
-  await p.waitForSelector(".drawer");
+  await p.waitForSelector(".filter-card");
   await p.locator('.level-switch__item:has-text("紫")').click();
-  await p.locator('.drawer .search-field input').fill("神射手");
+  await p.locator('.filter-card .search-field input').fill("神射手");
   await p.waitForTimeout(250);
   await p.locator('.badge-pick:has-text("神射手")').click();
-  await p.locator('.drawer__foot .btn--primary').click();
+  await p.locator('.filter-card__foot .btn--primary').click();
   await p.waitForTimeout(3500);
   const badgeCount = await p.locator(".results-count strong").textContent();
   const modeTag = await p.locator(".mode-tag").textContent().catch(() => "");
@@ -68,11 +68,11 @@ function check(name, ok, extra = "") {
 
   // 7. 属性筛选：三分投篮 >= 130 -> 4
   await p.locator(".btn--filter").click();
-  await p.waitForSelector(".drawer");
-  await p.locator('.drawer select[aria-label="属性名称"]').selectOption("三分投篮");
+  await p.waitForSelector(".filter-card");
+  await p.locator('.filter-card select[aria-label="属性名称"]').selectOption("三分投篮");
   await p.locator('input[aria-label="属性最低值"]').fill("130");
-  await p.locator('.drawer button:has-text("添加")').first().click();
-  await p.locator('.drawer__foot .btn--primary').click();
+  await p.locator('.filter-card button:has-text("添加")').first().click();
+  await p.locator('.filter-card__foot .btn--primary').click();
   await p.waitForTimeout(3500);
   const attrCount = await p.locator(".results-count strong").textContent();
   check("属性精细筛选", attrCount === "4", `count=${attrCount}`);
@@ -81,9 +81,9 @@ function check(name, ok, extra = "") {
   await p.locator(".active-chips .chip-link").click();
   await p.waitForTimeout(500);
   await p.locator(".btn--filter").click();
-  await p.waitForSelector(".drawer");
-  await p.locator('.play-grid .chip:has-text("低位背身单打")').click();
-  await p.locator('.drawer__foot .btn--primary').click();
+  await p.waitForSelector(".filter-card");
+  await p.locator('.play-grid .chip:has-text("低位背身")').click();
+  await p.locator('.filter-card__foot .btn--primary').click();
   await p.waitForTimeout(3500);
   const playCount = await p.locator(".results-count strong").textContent();
   check("战术精细筛选", Number(playCount) > 0, `count=${playCount}`);
@@ -105,14 +105,14 @@ function check(name, ok, extra = "") {
   await mp.goto(BASE, { waitUntil: "networkidle" });
   await mp.waitForSelector(".player-card");
   await mp.locator(".btn--filter").click();
-  await mp.waitForSelector(".drawer");
+  await mp.waitForSelector(".filter-card");
   await mp.waitForTimeout(300);
-  const drawerBox = await mp.locator(".drawer").boundingBox();
+  const drawerBox = await mp.locator(".filter-card").boundingBox();
   const overflow = await mp.evaluate(() => document.documentElement.scrollWidth - innerWidth);
   await mp.screenshot({ path: "shots/filter-drawer-390.png" });
-  check("移动端筛选面板", Boolean(drawerBox) && overflow === 0, `w=${drawerBox?.width}`);
+  check("移动端筛选卡片", Boolean(drawerBox) && drawerBox.width <= 390 && overflow === 0, `w=${drawerBox?.width}`);
   await mp.locator('input[aria-label="身高最低值"]').fill("210");
-  await mp.locator('.drawer__foot .btn--primary').click();
+  await mp.locator('.filter-card__foot .btn--primary').click();
   await mp.waitForTimeout(700);
   const mobileCount = await mp.locator(".results-count strong").textContent();
   check("移动端身高筛选", Number(mobileCount) > 0, `count=${mobileCount}`);
