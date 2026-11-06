@@ -140,10 +140,6 @@ export function AppShell() {
             <div className="site-footer__brand">COURTSIDE DB</div>
             <div>2KOL2 球员数据查询与对比终端</div>
           </div>
-          <p className="site-footer__note">
-            球员总评、价格、徽章等数据通过本地代理从官方小程序接口获取，仅供查询参考，实际以游戏内为准。
-            缺少快照的球员详情会在页面明确标注「离线推演数据」，不代表官方数值。
-          </p>
         </div>
       </footer>
 
