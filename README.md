@@ -192,3 +192,30 @@ export async function getPlayerDetail(id: string): Promise<PlayerDetail>;
 ## 8. 数据与免责声明
 
 本项目仅供网络安全技术研究、协议白盒审计与个人学习交流。球员姓名、头像与官方数值版权归属原版权方；总评、价格、徽章等数据通过本地代理从官方接口获取，仅供查询参考，实际以游戏内为准。缺少快照的球员详情会明确标注为离线推演，不代表官方数值。
+
+## 9. 线上部署
+
+线上实例（HostDZire VPS，Debian 12）：
+
+- 访问地址：http://199.47.242.40:2369
+- 进程管理：`systemd` 单元 `2kol.service`，端口 2369，开机自启
+- 部署目录：`/opt/2kol`（`venv/` + `backend/` + `frontend/dist/`）
+- 数据模式：后端可访问官方接口时为「实时代理」，异常时自动退回本地 SQLite 与前端快照
+
+服务端常用命令：
+
+```bash
+systemctl status 2kol      # 查看状态
+systemctl restart 2kol     # 重启
+journalctl -u 2kol -f      # 实时日志
+curl -s http://127.0.0.1:2369/api/system/health
+```
+
+更新发布流程（本地构建后覆盖上传）：
+
+```bash
+cd frontend && npm run build
+scp -r frontend/dist root@199.47.242.40:/opt/2kol/frontend/
+scp -r backend       root@199.47.242.40:/opt/2kol/
+ssh root@199.47.242.40 'systemctl restart 2kol'
+```
