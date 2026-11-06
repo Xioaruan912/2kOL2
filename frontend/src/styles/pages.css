@@ -560,7 +560,8 @@
 }
 
 .detail-body {
-  padding: var(--sp-6) 0 72px;
+  padding-top: var(--sp-6);
+  padding-bottom: 72px;
 }
 
 .detail-grid {
@@ -762,17 +763,69 @@
 
 /* 综合：热区 */
 
-.zone-panel {
-  display: grid;
-  grid-template-columns: minmax(0, 1.02fr) minmax(0, 1fr);
-  gap: var(--sp-6);
-  align-items: center;
+.court-card {
+  width: 100%;
+  max-width: 860px;
+  margin: 0 auto;
 }
 
-.zone-list {
+.court-card__surface {
+  background: #e9dcc2;
+  line-height: 0;
+}
+
+.court-card .court-svg {
+  width: 100%;
+  max-width: none;
+  height: auto;
+}
+
+.court-card__foot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 16px 16px;
+}
+
+.court-disclosure {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 12px;
+  border-radius: var(--r-pill);
+  font-size: var(--fs-12);
+  color: var(--text-3);
+  transition: background var(--motion-fast), color var(--motion-fast);
+}
+
+.court-disclosure:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.court-disclosure svg {
+  transition: transform var(--motion-fast);
+}
+
+.court-disclosure svg.is-open {
+  transform: rotate(180deg);
+}
+
+.court-zone-detail {
+  width: 100%;
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0 20px;
+  padding: 6px 0 10px;
+  border-bottom: 1px dashed var(--line);
+}
+
+.court-zone-detail .zone-list__row {
+  border-bottom: none;
+  padding: 4px 0;
+  font-size: var(--fs-11);
 }
 
 .zone-list__row {
@@ -803,6 +856,35 @@
 .zone-list__tone {
   color: var(--text-3);
   font-size: var(--fs-11);
+}
+
+.court-legend {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 28px;
+  flex-wrap: wrap;
+  padding-top: 2px;
+}
+
+.court-legend__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--fs-13);
+  color: var(--text-2);
+}
+
+.court-legend__swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 2px;
+}
+
+.court-legend__count {
+  font-family: var(--font-num);
+  font-size: var(--fs-12);
+  color: var(--text-3);
 }
 
 .highlight-title {
@@ -843,44 +925,10 @@
   color: var(--accent);
 }
 
-.court-wrap {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--sp-3);
-}
-
 .court-svg {
   width: 100%;
   max-width: 470px;
   height: auto;
-}
-
-.zone-legend {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-5);
-  font-size: var(--fs-12);
-  color: var(--text-2);
-  flex-wrap: wrap;
-  justify-content: center;
-}
-
-.zone-legend__item {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.zone-legend__swatch {
-  width: 11px;
-  height: 11px;
-  border-radius: 2px;
-}
-
-.zone-legend__count {
-  font-family: var(--font-num);
-  color: var(--text-3);
 }
 
 /* ---------------------------------------------------------- 属性 */
@@ -1908,7 +1956,8 @@
   }
 
   .detail-body {
-    padding: var(--sp-4) 0 56px;
+    padding-top: var(--sp-4);
+    padding-bottom: 56px;
   }
 
   .panel__body {
@@ -1928,9 +1977,17 @@
     gap: 0 12px;
   }
 
-  .zone-panel {
-    grid-template-columns: minmax(0, 1fr);
-    gap: var(--sp-4);
+  .court-card {
+    max-width: none;
+  }
+
+  .court-zone-detail {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0 14px;
+  }
+
+  .court-legend {
+    gap: 20px;
   }
 
   .cap-row {
@@ -2006,7 +2063,5 @@
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .zone-list {
-    grid-template-columns: minmax(0, 1fr);
-  }
+
 }

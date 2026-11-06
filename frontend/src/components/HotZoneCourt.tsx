@@ -1,73 +1,55 @@
 import type { HotZoneEntry } from "../data/types";
 
-const HOOP = { x: 250, y: 430 };
-const ARC_R = 240;
-const CORNER_Y = 330;
-
-function arcY(x: number): number {
-  const dx = x - HOOP.x;
-  const inside = ARC_R * ARC_R - dx * dx;
-  return inside > 0 ? HOOP.y - Math.sqrt(inside) : CORNER_Y;
+/**
+ * 热区几何来自 2KOL2 小程序官方绘制逻辑：
+ * 画布 300 x 250，底线在上方（y=0），篮下在顶部中央。
+ * 14 个多边形按官方顺序排列，另含篮下月牙与两条距离弧线。
+ */
+interface ZoneShape {
+  district: string;
+  points: Array<[number, number]>;
+  dashed?: string;
 }
 
-/** 三分线与中距离之间的分界线：中间跟随弧线，底角走直线 */
-function boundaryY(x: number): number {
-  if (x < 30 || x > 470) return CORNER_Y;
-  return arcY(x);
-}
+const ZONE_SHAPES: ZoneShape[] = [
+  { district: "three_left", points: [[1, 0], [1, 175], [40, 150], [20, 130], [20, 0]] },
+  { district: "med_left", points: [[20, 0], [20, 130], [40, 150], [90, 115], [70, 95], [70, 0]] },
+  { district: "close_left", points: [[70, 0], [70, 95], [103, 127], [140, 60], [125, 45], [125, 0]] },
+  { district: "close_center", points: [[103, 127], [140, 60], [160, 60], [197, 127], [150, 170]] },
+  { district: "close_right", points: [[230, 0], [230, 95], [197, 127], [160, 60], [175, 45], [175, 0]] },
+  { district: "med_left_center", points: [[1, 175], [90, 115], [112, 133], [125, 140], [105, 190]] },
+  { district: "med_center", points: [[80, 250], [125, 140], [150, 143], [175, 140], [220, 250]] },
+  { district: "med_right_center", points: [[299, 175], [210, 115], [188, 133], [175, 140], [195, 190]] },
+  {
+    district: "under_basket",
+    points: [[125, 0], [175, 0], [175, 45], [125, 45]],
+    dashed: "95 50",
+  },
+  { district: "med_right", points: [[280, 0], [280, 130], [260, 150], [210, 115], [230, 95], [230, 0]] },
+  { district: "three_right", points: [[299, 0], [299, 175], [259, 150], [279, 130], [279, 0]] },
+  {
+    district: "three_left_center",
+    points: [[1, 175], [1, 250], [80, 250], [105, 190], [80, 180], [40, 150]],
+    dashed: "180 115",
+  },
+  {
+    district: "three_center",
+    points: [[80, 250], [220, 250], [195, 190], [154, 201], [105, 190]],
+    dashed: "180 115",
+  },
+  {
+    district: "three_right_center",
+    points: [[299, 175], [299, 250], [220, 250], [195, 192], [220, 181], [260, 150]],
+  },
+];
 
-function boundaryPoints(fromX: number, toX: number, steps = 16): Array<[number, number]> {
-  const points: Array<[number, number]> = [];
-  for (let i = 0; i <= steps; i += 1) {
-    const x = fromX + ((toX - fromX) * i) / steps;
-    points.push([x, boundaryY(x)]);
-  }
-  return points;
-}
+/** 篮下区域用二次曲线补出的月牙，与官方绘制一致 */
+const UNDER_BASKET_CRESCENT = "M175,45 Q150,80 125,45 Z";
 
-function path(points: Array<[number, number]>): string {
-  return (
-    points
-      .map(([x, y], i) => `${i === 0 ? "M" : "L"}${x.toFixed(1)},${y.toFixed(1)}`)
-      .join(" ") + " Z"
-  );
-}
-
-const ZONE_PATHS: Record<string, string> = {
-  three_left: path([[0, 0], [100, 0], ...boundaryPoints(100, 0, 16)]),
-  three_left_center: path([[100, 0], [200, 0], ...boundaryPoints(200, 100, 12)]),
-  three_center: path([[200, 0], [300, 0], ...boundaryPoints(300, 200, 12)]),
-  three_right_center: path([[300, 0], [400, 0], ...boundaryPoints(400, 300, 12)]),
-  three_right: path([[400, 0], [500, 0], ...boundaryPoints(500, 400, 16)]),
-
-  med_left: path([[0, CORNER_Y], ...boundaryPoints(0, 100, 12), [100, 470], [0, 470]]),
-  med_left_center: path([
-    ...boundaryPoints(100, 200, 10),
-    [200, CORNER_Y],
-    [100, CORNER_Y],
-  ]),
-  med_center: path([...boundaryPoints(200, 300, 10), [300, CORNER_Y], [200, CORNER_Y]]),
-  med_right_center: path([
-    ...boundaryPoints(300, 400, 10),
-    [400, CORNER_Y],
-    [300, CORNER_Y],
-  ]),
-  med_right: path([...boundaryPoints(400, 500, 12), [500, 470], [400, 470]]),
-
-  close_left: path([[100, CORNER_Y], [200, CORNER_Y], [200, 470], [100, 470]]),
-  close_center: path([[200, CORNER_Y], [300, CORNER_Y], [300, 470], [200, 470]]),
-  close_right: path([[300, CORNER_Y], [400, CORNER_Y], [400, 470], [300, 470]]),
-
-  under_basket: path([
-    [212, 470],
-    [212, 402],
-    ...Array.from({ length: 11 }, (_, i): [number, number] => {
-      const t = i / 10;
-      return [212 + 76 * t, 402 - Math.sin(Math.PI * t) * 18];
-    }),
-    [288, 470],
-  ]),
-};
+const DISTANCE_ARCS = [
+  "M70,95 Q150,192 230,95",
+  "M40,150 Q150,250 260,150",
+];
 
 export const ZONE_LABELS: Record<string, string> = {
   under_basket: "篮下",
@@ -86,21 +68,24 @@ export const ZONE_LABELS: Record<string, string> = {
   three_right: "三分右侧底角",
 };
 
-export const ZONE_ORDER = [
-  "under_basket",
-  "close_left",
-  "close_center",
-  "close_right",
-  "med_left",
-  "med_left_center",
-  "med_center",
-  "med_right_center",
-  "med_right",
+export const ZONE_ORDER = ZONE_SHAPES.map((shape) => shape.district);
+
+/** 说明列表使用空间顺序：由外到内，从左到右 */
+export const ZONE_DISPLAY_ORDER = [
   "three_left",
   "three_left_center",
   "three_center",
   "three_right_center",
   "three_right",
+  "med_left",
+  "med_left_center",
+  "med_center",
+  "med_right_center",
+  "med_right",
+  "close_left",
+  "close_center",
+  "close_right",
+  "under_basket",
 ];
 
 const ZONE_COLORS: Record<number, string> = {
@@ -115,57 +100,115 @@ export function zoneTone(zone: HotZoneEntry): 0 | 1 | 2 {
   return 0;
 }
 
+function toPath(points: Array<[number, number]>): string {
+  return points.map(([x, y], i) => `${i === 0 ? "M" : "L"}${x},${y}`).join(" ") + " Z";
+}
+
 interface HotZoneCourtProps {
   zones: HotZoneEntry[];
   ariaLabel?: string;
 }
 
-const THREE_ARC = (() => {
-  const points: Array<[number, number]> = [];
-  for (let i = 0; i <= 26; i += 1) {
-    const x = 30 + ((470 - 30) * i) / 26;
-    points.push([x, arcY(x)]);
-  }
-  return points.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
-})();
-
 export function HotZoneCourt({ zones, ariaLabel = "投篮热区分布" }: HotZoneCourtProps) {
   const zoneMap = new Map(zones.map((zone) => [zone.district, zone]));
 
   return (
-    <svg className="court-svg" viewBox="0 0 500 470" role="img" aria-label={ariaLabel}>
-      <rect x="0" y="0" width="500" height="470" fill="#efece5" />
-
-      {ZONE_ORDER.map((district) => {
-        const zone = zoneMap.get(district);
-        const tone = zone ? zoneTone(zone) : 1;
-        return (
+    <svg
+      className="court-svg"
+      viewBox="0 0 300 250"
+      role="img"
+      aria-label={ariaLabel}
+      preserveAspectRatio="xMidYMid slice"
+    >
+      <defs>
+        <pattern id="court-wood" width="48" height="46" patternUnits="userSpaceOnUse">
+          <rect width="48" height="46" fill="#dfc9a4" />
+          <rect x="0" y="0" width="1.1" height="46" fill="#c3a97f" />
+          <rect x="24" y="0" width="1.1" height="46" fill="#c3a97f" />
           <path
-            key={`fill-${district}`}
-            d={ZONE_PATHS[district]}
-            fill={ZONE_COLORS[tone]}
-            stroke="none"
-          >
-            <title>
-              {`${ZONE_LABELS[district] ?? district}：${tone === 2 ? "热区" : tone === 1 ? "中性区" : "冷区"}`}
-            </title>
-          </path>
-        );
-      })}
+            d="M5,0 C8,10 2,22 6,32 C8,39 5,43 5,46"
+            stroke="#b99e72"
+            strokeWidth="0.8"
+            fill="none"
+            opacity="0.8"
+          />
+          <path
+            d="M32,0 C36,12 30,24 34,36 C35,41 33,44 33,46"
+            stroke="#b29669"
+            strokeWidth="0.7"
+            fill="none"
+            opacity="0.7"
+          />
+          <path
+            d="M14,0 C16,9 12,19 15,30 C17,38 14,42 14,46"
+            stroke="#bda379"
+            strokeWidth="0.55"
+            fill="none"
+            opacity="0.6"
+          />
+          <path
+            d="M41,0 C43,11 39,23 42,34"
+            stroke="#b29669"
+            strokeWidth="0.5"
+            fill="none"
+            opacity="0.55"
+          />
+          <path
+            d="M20,0 C22,14 18,26 21,38"
+            stroke="#bda379"
+            strokeWidth="0.45"
+            fill="none"
+            opacity="0.45"
+          />
+        </pattern>
+      </defs>
 
-      <g fill="none" stroke="#fbf9f4" strokeWidth={1.7} strokeLinejoin="round">
-        {ZONE_ORDER.map((district) => (
-          <path key={`stroke-${district}`} d={ZONE_PATHS[district]} />
+      <rect x="0" y="0" width="300" height="250" fill="url(#court-wood)" />
+
+      <g>
+        {ZONE_SHAPES.map((shape) => {
+          const zone = zoneMap.get(shape.district);
+          const tone = zone ? zoneTone(zone) : 1;
+          return (
+            <path
+              key={shape.district}
+              d={toPath(shape.points)}
+              fill={ZONE_COLORS[tone]}
+              fillOpacity={0.9}
+              stroke="#eaeaea"
+              strokeWidth={1.1}
+              strokeDasharray={shape.dashed}
+              strokeLinejoin="round"
+            >
+              <title>
+                {`${ZONE_LABELS[shape.district] ?? shape.district}：${
+                  tone === 2 ? "热区" : tone === 1 ? "中性区" : "冷区"
+                }`}
+              </title>
+            </path>
+          );
+        })}
+
+        {/* 篮下月牙 */}
+        {(() => {
+          const zone = zoneMap.get("under_basket");
+          const tone = zone ? zoneTone(zone) : 1;
+          return (
+            <path
+              d={UNDER_BASKET_CRESCENT}
+              fill={ZONE_COLORS[tone]}
+              fillOpacity={0.9}
+              stroke="#eaeaea"
+              strokeWidth={1.1}
+              strokeDasharray="95 50"
+            />
+          );
+        })()}
+
+        {/* 两条距离弧线 */}
+        {DISTANCE_ARCS.map((d) => (
+          <path key={d} d={d} fill="none" stroke="#eaeaea" strokeWidth={1.1} />
         ))}
-        <rect x="1" y="1" width="498" height="469" />
-        <rect x="170" y="280" width="160" height="189" />
-        <circle cx="250" cy="280" r="60" />
-        <line x1="30" y1="470" x2="30" y2={arcY(30).toFixed(1)} />
-        <line x1="470" y1="470" x2="470" y2={arcY(470).toFixed(1)} />
-        <polyline points={THREE_ARC} />
-        <path d={`M210,430 A40,40 0 0 1 290,430`} />
-        <line x1="224" y1="446" x2="276" y2="446" strokeWidth={2.4} />
-        <circle cx="250" cy="430" r="8" strokeWidth={2} />
       </g>
     </svg>
   );

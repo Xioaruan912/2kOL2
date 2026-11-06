@@ -1,12 +1,20 @@
-import { ChartPolar, Gauge, Sneaker } from "@phosphor-icons/react";
+import { useState } from "react";
+import { CaretDown, ChartPolar, Gauge, Sneaker } from "@phosphor-icons/react";
 import type { PlayerDetail } from "../../data/types";
 import { RadarChart } from "../../components/RadarChart";
-import { HotZoneCourt, ZONE_LABELS, ZONE_ORDER, zoneTone } from "../../components/HotZoneCourt";
+import {
+  HotZoneCourt,
+  ZONE_DISPLAY_ORDER,
+  ZONE_LABELS,
+  ZONE_ORDER,
+  zoneTone,
+} from "../../components/HotZoneCourt";
 import { CAPABILITY_SUMMARY, capabilityAverage, sortRadar } from "../../data/taxonomy";
 import { BadgeCounts } from "../../components/BadgeCounts";
 import { formatPositions } from "../../lib/format";
 
 export function OverviewTab({ detail }: { detail: PlayerDetail }) {
+  const [zoneDetailOpen, setZoneDetailOpen] = useState(false);
   const radar = sortRadar(detail.radar);
   const zones = ZONE_ORDER.map((district) => {
     const found = detail.hotZones.find((zone) => zone.district === district);
@@ -150,35 +158,26 @@ export function OverviewTab({ detail }: { detail: PlayerDetail }) {
         </div>
       </div>
 
-      <section className="panel" aria-label="投篮热区">
-        <div className="panel__head">
-          <h2 className="panel__title">投篮热区</h2>
-          <span className="panel__hint">热区 {toneCounts[2]} · 中性 {toneCounts[1]} · 冷区 {toneCounts[0]}</span>
+      <section className="panel court-card" aria-label="投篮热区">
+        <div className="court-card__surface">
+          <HotZoneCourt zones={zones} ariaLabel={`${detail.name} 投篮热区`} />
         </div>
-        <div className="panel__body">
-          <div className="zone-panel">
-            <div className="court-wrap">
-              <HotZoneCourt zones={zones} ariaLabel={`${detail.name} 投篮热区`} />
-              <div className="zone-legend">
-                <span className="zone-legend__item">
-                  <span className="zone-legend__swatch" style={{ background: "var(--zone-hot)" }} />
-                  热区
-                  <span className="zone-legend__count">{toneCounts[2]}</span>
-                </span>
-                <span className="zone-legend__item">
-                  <span className="zone-legend__swatch" style={{ background: "var(--zone-neutral)" }} />
-                  中性
-                  <span className="zone-legend__count">{toneCounts[1]}</span>
-                </span>
-                <span className="zone-legend__item">
-                  <span className="zone-legend__swatch" style={{ background: "var(--zone-cold)" }} />
-                  冷区
-                  <span className="zone-legend__count">{toneCounts[0]}</span>
-                </span>
-              </div>
-            </div>
-            <div className="zone-list">
-              {zones.map((zone) => {
+        <div className="court-card__foot">
+          <button
+            type="button"
+            className="court-disclosure"
+            aria-expanded={zoneDetailOpen}
+            onClick={() => setZoneDetailOpen((open) => !open)}
+          >
+            球场分布说明
+            <CaretDown size={11} weight="bold" className={zoneDetailOpen ? "is-open" : undefined} />
+          </button>
+
+          {zoneDetailOpen ? (
+            <div className="court-zone-detail">
+              {ZONE_DISPLAY_ORDER.map((district) => {
+                const zone = zones.find((item) => item.district === district);
+                if (!zone) return null;
                 const tone = zoneTone(zone);
                 return (
                   <div className="zone-list__row" key={zone.district}>
@@ -186,7 +185,11 @@ export function OverviewTab({ detail }: { detail: PlayerDetail }) {
                       className="zone-list__swatch"
                       style={{
                         background:
-                          tone === 2 ? "var(--zone-hot)" : tone === 1 ? "var(--zone-neutral)" : "var(--zone-cold)",
+                          tone === 2
+                            ? "var(--zone-hot)"
+                            : tone === 1
+                              ? "var(--zone-neutral)"
+                              : "var(--zone-cold)",
                       }}
                     />
                     <span className="zone-list__name">{ZONE_LABELS[zone.district] ?? zone.district}</span>
@@ -195,6 +198,24 @@ export function OverviewTab({ detail }: { detail: PlayerDetail }) {
                 );
               })}
             </div>
+          ) : null}
+
+          <div className="court-legend">
+            <span className="court-legend__item">
+              <span className="court-legend__swatch" style={{ background: "var(--zone-hot)" }} />
+              热区
+              <span className="court-legend__count">{toneCounts[2]}</span>
+            </span>
+            <span className="court-legend__item">
+              <span className="court-legend__swatch" style={{ background: "var(--zone-neutral)" }} />
+              中性
+              <span className="court-legend__count">{toneCounts[1]}</span>
+            </span>
+            <span className="court-legend__item">
+              <span className="court-legend__swatch" style={{ background: "var(--zone-cold)" }} />
+              冷区
+              <span className="court-legend__count">{toneCounts[0]}</span>
+            </span>
           </div>
         </div>
       </section>
